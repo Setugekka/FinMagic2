@@ -311,27 +311,27 @@
                             <li class="has-submenu">
                                 <a href="#"><i class="mdi mdi-chart-line"></i> 走势预测排序</a>
                                 <ul class="submenu">
-                                    <li><a href="">买点统计排序</a></li>
-                                    <li><a href="">相似走势排序</a></li>
-                                    <li><a href="">相关走势排序</a></li>
-                                    <li><a href="">自身重现排序</a></li>
-                                    <li><a href="">长期趋势排序</a></li>
+                                    <li><a href="{{ url_for('stock_recommendation.trading_point_sorting') }}">买点统计排序</a></li>
+                                    <li><a href="{{ url_for('stock_recommendation.similarity_trend_sorting') }}">相似走势排序</a></li>
+                                    <li><a href="{{ url_for('stock_recommendation.correlation_trend_sorting') }}">相关走势排序</a></li>
+                                    <li><a href="{{ url_for('stock_recommendation.history_reappear_sorting') }}">自身重现排序</a></li>
+                                    <li><a href="{{ url_for('stock_recommendation.long_term_trend_sorting') }}">长期趋势排序</a></li>
                                 </ul>
                             </li>
                             <li class="has-submenu">
                                 <a href="#"><i class="mdi mdi-view-carousel"></i> 股票估值排序</a>
                                 <ul class="submenu">
-                                    <li><a href="">基于相似收益</a></li>
-                                    <li><a href="">基于行业均值</a></li>
-                                    <li><a href="">各行业平均PE及前3</a></li>
+                                    <li><a href="{{ url_for('stock_recommendation.similarity_eps_sorting') }}">基于相似收益</a></li>
+                                    <li><a href="{{ url_for('stock_recommendation.industry_mean_sorting') }}">基于行业均值</a></li>
+                                    <li><a href="{{ url_for('stock_recommendation.industry_pe_sorting') }}">各行业平均PE及前3</a></li>
                                 </ul>
                             </li>
                             <li class="has-submenu">
                                 <a href="#"><i class="mdi mdi-cash"></i> 资金流向排序</a>
                                 <ul class="submenu">
-                                    <li><a href="">主力资金排序</a></li>
-                                    <li><a href="">主力净流入排序</a></li>
-                                    <li><a href="">主力控盘能力排序</a></li>
+                                    <li><a href="{{ url_for('stock_recommendation.main_capital') }}">主力资金排序</a></li>
+                                    <li><a href="{{ url_for('stock_recommendation.main_net') }}">主力净流入排序</a></li>
+                                    <li><a href="{{ url_for('stock_recommendation.main_ability') }}">主力控盘能力排序</a></li>
                                 </ul>
                             </li>
                             <li class="has-submenu">
@@ -345,10 +345,10 @@
                             <li class="has-submenu">
                                 <a href="#"><i class="mdi mdi-usb"></i> 规则统计排序</a>
                                 <ul class="submenu">
-                                    <li><a href="">联动涨跌排序</a></li>
-                                    <li><a href="">幅值组合排序</a></li>
-                                    <li><a href="">涨跌幅排序</a></li>
-                                    <li><a href="">走势形态匹配</a></li>
+                                    <li><a href="{{ url_for('stock_recommendation.associate_rule_sorting') }}">联动涨跌排序</a></li>
+                                    <li><a href="{{ url_for('stock_recommendation.fluctuation_combination_sorting') }}">幅值组合排序</a></li>
+                                    <li><a href="{{ url_for('stock_recommendation.fluctuation_sequencing_sorting') }}">涨跌幅排序</a></li>
+                                    <li><a href="{{ url_for('stock_recommendation.shape_matching_sorting') }}">走势形态匹配</a></li>
                                 </ul>
                             </li>
                             <li class="has-submenu">
@@ -660,7 +660,7 @@
 <!-- App js -->
 <script src="{{ url_for('static',filename='js/jquery.core.js') }}"></script>
 <script src="{{ url_for('static',filename='js/jquery.app.js') }}"></script>
-
+<script src="{{ url_for('static',filename='assets/js/main/jquery.palette.js') }}"></script>
 <!--bootstrap suggest-->
 <script src="{{ url_for('static',filename='libs/bootstrap-suggest/bootstrap-suggest.min.js') }}"></script>
 <script src="{{ url_for('static',filename='assets/js/main/jquery.bootstrap-suggest.js') }}"></script>

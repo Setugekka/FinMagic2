@@ -1,0 +1,128 @@
+{% extends "stock_recommendation/stock_sorting/stock_sorting_base.html" %}
+{% block pagetitle %}
+    <div class="page-title-alt-bg"></div>
+    <div class="page-title-box">
+        <ol class="breadcrumb float-right">
+            <li class="breadcrumb-item"><a href="javascript:void(0);">个股排序</a></li>
+            <li class="breadcrumb-item"><a href="javascript:void(0);">资金流向排序</a></li>
+            <li class="breadcrumb-item active">主力控盘能力排序</li>
+        </ol>
+        <h4 class="page-title">主力控盘能力排序</h4>
+        <div class="pb-1">根据主力控盘能力的衡量值大小进行排序。</div>
+    </div>
+{% endblock %}
+{% block page_nav %}
+    <div class="row" id="trend_prediction_sorting_navigation">
+        <a href="{{ url_for('stock_recommendation.main_capital') }}" class="ml-1 mr-1 btn btn-secondary"
+           style="color: white;font-size: 18px;font-weight: bold">主力资金排序</a>
+        <a href="{{ url_for('stock_recommendation.main_net') }}" class="ml-1 mr-1 btn btn-secondary"
+           style="color: white;font-size: 18px;font-weight: bold">主力净流入排序</a>
+        <a href="{{ url_for('stock_recommendation.main_ability') }}" class="ml-1 mr-1 btn btn-primary"
+           style="color: white;font-size: 18px;font-weight: bold">主力控盘能力排序</a>
+    </div>
+{% endblock %}
+{% block page_container %}
+    <div class="row">
+        <div class="col-2 pl-5">
+            <div class="row">
+                <div class="nav flex-column nav-pills nav-pills-tab" id="v-pills-tab" role="tablist"
+                     aria-orientation="vertical">
+                    {% for day in date_list %}
+                        {% if day==date %}
+                            <a class="nav-link active mb-2"
+                               href="{{ url_for('stock_recommendation.main_ability',date=day) }}">
+                                {{ "%s/%s/%s"|format(day[0:4],day[4:6],day[6:8]) }}
+                            </a>
+                        {% else %}
+                            <a class="nav-link mb-2"
+                               href="{{ url_for('stock_recommendation.main_ability',date=day) }}">
+                                {{ "%s/%s/%s"|format(day[0:4],day[4:6],day[6:8]) }}
+                            </a>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+            </div> <!-- end row-->
+        </div>
+        <div class="col-10">
+            <div class="row" id="table">
+            </div>
+            <div class="row">
+                <p>- 主力参与比例(P)：为近期参与股票交易的大单和超大单资金的占比。<br/>- 净流入/涨跌相关性(C)：指主力净流入资金与股票涨跌的关系，是一种相关性的计量。<br/>-
+                    主力控盘能力:M=C/P，其中C代表净流入/涨跌相关性，P代表主力参与比例。<br/>- 输出列表同时满足条件：(1)
+                    按主力控盘能力衡量值从大到小排序；(2)处于买点状态；(3)换手率大于1%<br/></p>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+{% block scripts %}
+    <script src="{{ url_for('static',filename='libs/sparkline/jquery.sparkline.min.js') }}"></script>
+    <script>
+        var date = "{{ date }}"
+    </script>
+    <script>
+        $.ajax({
+            type: "GET",
+            url: "{{ url_for('stock_recommendation.api_main_ability') }}",
+            data: {date: '20181101'},
+            dataType: "json",
+            success: function (r) {
+                show_table(r)
+            }
+        });
+
+        function show_table(data) {
+            var html = "<table class=\"table table-hover fullwidth\" style=\"table-layout: fixed; text-align: center;\">\n" +
+                "                <thead>\n" +
+                "                <tr>\n" +
+                "                    <th style=\"width: 50px;\">#</th>\n" +
+                "                    <th style=\"width: 100px;\">股票名称</th>\n" +
+                "                    <th style=\"width: 120px;\">主力参与比例</th>\n" +
+                "                    <th style=\"width: 120px;\">净流入/涨跌相关性</th>\n" +
+                "                    <th style=\"border-left:#cd5e63 2px solid;border-right:#cd5e63 2px solid;border-top:#cd5e63 2px solid;width: 140px;\">主力控盘能力\n" +
+                "                    <th style=\"width: 80px;\">换手率</th>\n" +
+                "                    <th>近30天走势及高低点</th>\n" +
+                "                </tr>\n" +
+                "                </thead>\n" +
+                "                <tbody>"
+            for (var i = 0; i < data.length; i++) {
+                if (i != data.length - 1) {
+                    html += "<tr>\n" +
+                        "                    <td style=\"vertical-align: middle;\">" + (i + 1) + "</td>\n" +
+                        "                    <td><a target=\"_blank\">" + data[i].name + "<br/>(" + data[i].symbol + ")</a>\n" +
+                        "                    </td>\n" +
+                        "                    <td style=\"vertical-align: middle;\">" + (data[i].main_ratio*100).toFixed(2) + "%</td>\n" +
+                        "                    <td style=\"vertical-align: middle;\">" + (data[i].corr.toFixed(2)*100) + "%</td>\n" +
+                        "                    <td style=\"border-left:#cd5e63 2px solid;border-right:#cd5e63 2px solid;vertical-align: middle\">" + (data[i].corr / data[i].main_ratio).toFixed(2) + "</td>\n" +
+                        "                    <td style=\"vertical-align: middle;\">" + data[i].turnover_rate + "%</td>\n" +
+                        "                    <td><span class=\"sparkslim\">" + data[i].close_list + "</span>\n" +
+                        "                    </td>\n" +
+                        "                </tr>"
+                } else {
+                    html += "<tr>\n" +
+                        "                    <td style=\"vertical-align: middle;\">" + (i + 1) + "</td>\n" +
+                        "                    <td><a target=\"_blank\">" + data[i].name + "<br/>(" + data[i].symbol + ")</a>\n" +
+                        "                    </td>\n" +
+                        "                    <td style=\"vertical-align: middle;\">" + (data[i].main_ratio*100).toFixed(2) + "%</td>\n" +
+                        "                    <td style=\"vertical-align: middle;\">" + (data[i].corr.toFixed(2)*100) + "%</td>\n" +
+                        "                    <td style=\"border-left:#cd5e63 2px solid;border-right:#cd5e63 2px solid;border-bottom:#cd5e63 2px solid;vertical-align: middle\">" + (data[i].corr / data[i].main_ratio).toFixed(2) + "</td>\n" +
+                        "                    <td style=\"vertical-align: middle;\">" + data[i].turnover_rate + "%</td>\n" +
+                        "                    <td><span class=\"sparkslim\">" + data[i].close_list + "</span>\n" +
+                        "                    </td>\n" +
+                        "                </tr>"
+                }
+            }
+            html += "</tbody></table>"
+            $("#table").html(html)
+            $(".sparkslim").sparkline('html', {
+                type: "line",
+                width: "100%",
+                height: "40",
+                spotColor: false,
+                spotRadius: 3,
+                lineColor: "#adadad",
+                fillColor: "#f4fce1"
+            });
+
+        }
+    </script>
+{% endblock %}

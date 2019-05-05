@@ -1,0 +1,135 @@
+{% extends "stock_recommendation/stock_sorting/stock_sorting_base.html" %}
+{% block styles %}
+    <style>
+        .btn_no, .btn_no:visited {
+            color: #999999;
+            font-size: 14px;
+            border: 1px solid #bbbbbb;
+            background: transparent;
+            padding: 4px 8px 4px 8px;
+            border-radius: 8px 8px 8px 8px;
+            float: left;
+            line-height: 24px;
+            margin: 6px 4px 6px 0;
+        }
+    </style>
+{% endblock %}
+{% block pagetitle %}
+    <div class="page-title-alt-bg"></div>
+    <div class="page-title-box">
+        <ol class="breadcrumb float-right">
+            <li class="breadcrumb-item"><a href="javascript:void(0);">个股排序</a></li>
+            <li class="breadcrumb-item"><a href="javascript:void(0);">股票估值排序</a></li>
+            <li class="breadcrumb-item active">各行业平均PE及前3</li>
+        </ol>
+        <h4 class="page-title">各行业平均PE及前3</h4>
+        <div class="pb-1">上市公司的行业平均市盈率及每个行业的估值前3名。</div>
+    </div>
+{% endblock %}
+{% block page_nav %}
+    <div class="row" id="trend_prediction_sorting_navigation">
+        <a href="{{ url_for('stock_recommendation.similarity_eps_sorting') }}" class="ml-1 mr-1 btn btn-secondary"
+           style="color: white;font-size: 18px;font-weight: bold">基于相似收益</a>
+        <a href="{{ url_for('stock_recommendation.industry_mean_sorting') }}" class="ml-1 mr-1 btn btn-secondary"
+           style="color: white;font-size: 18px;font-weight: bold">基于行业均值</a>
+        <a href="{{ url_for('stock_recommendation.industry_pe_sorting') }}" class="ml-1 mr-1 btn btn-primary"
+           style="color: white;font-size: 18px;font-weight: bold">各行业平均PE及前3</a>
+    </div>
+{% endblock %}
+{% block page_container %}
+    <div class="row">
+        <div class="col-2 pl-5">
+            <div class="row">
+                <div class="nav flex-column nav-pills nav-pills-tab" id="v-pills-tab" role="tablist"
+                     aria-orientation="vertical">
+                    {% for day in date_list %}
+                        {% if day==date %}
+                            <a class="nav-link active mb-2"
+                               href="{{ url_for('stock_recommendation.industry_pe_sorting',mode=0,date=day) }}">
+                                {{ "%s/%s/%s"|format(day[0:4],day[4:6],day[6:8]) }}
+                            </a>
+                        {% else %}
+                            <a class="nav-link mb-2"
+                               href="{{ url_for('stock_recommendation.industry_pe_sorting',mode=0,date=day) }}">
+                                {{ "%s/%s/%s"|format(day[0:4],day[4:6],day[6:8]) }}
+                            </a>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+            </div> <!-- end row-->
+        </div>
+        <div class="col-10">
+            <div class="text-right">
+                <a href="{{ url_for('stock_recommendation.industry_pe_sorting',mode=0,date=date) }}"
+                   class="btn btn-info" style="color: white">证监会行业分类</a>
+                <a href="{{ url_for('stock_recommendation.industry_pe_sorting',mode=1,date=date) }}" class="btn"
+                   style="color: black;background-color: #DDDDDD">国证行业分类</a>
+            </div>
+            <div class="row" id="table"></div>
+            <div class="row">
+                <p>- 证监会行业有2个分类层次：<span style="color:#FF9900;">加底色行</span>为大类，无底色行为小类。<br/>-
+                    在估值排序前3名列的股票列表中，下方数字代表该股票的滚动市盈率。<br/>- 可以据此挑选各行业的优质股票。<br/></p>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+{% block scripts %}
+    <script src="{{ url_for('static',filename='libs/sparkline/jquery.sparkline.min.js') }}"></script>
+    <script>
+        var date = "{{ date }}"
+    </script>
+    <script>
+        $.ajax({
+            type: "GET",
+            url: "{{ url_for('stock_recommendation.api_industry_csrc_pe_sorting') }}",
+            data: {date: '20181101'},
+            dataType: "json",
+            success: function (r) {
+                show_table(r)
+            }
+        });
+
+        function show_table(data) {
+            var html = "<table class=\"table table-hover fullwidth\" style=\"table-layout: fixed; text-align: center;\">\n" +
+                "                <thead>\n" +
+                "                <tr>\n" +
+                "                    <th style=\"width: 300px;text-align: left;\">行业名称</th>\n" +
+                "                    <th style=\"width: 120px;\">公司数量</th>\n" +
+                "                    <th style=\"width: 120px;\">静态市盈率</th>\n" +
+                "                    <th style=\"width: 120px;\">滚动市盈率</th>\n" +
+                "                    <th>估值排序前3名<br/>(各行业PE按从小到大排序)</th>\n" +
+                "                </tr>\n" +
+                "                </thead>\n" +
+                "                <tbody>"
+            for (var i = 0; i < data.data.length; i++) {
+                html += "<tr style=\"background-color: #FFFFE0;\">\n" +
+                    "                    <td style=\"text-align: left;vertical-align: middle;\">" + data.industry[i].name + "</td>\n" +
+                    "                    <td style=\"vertical-align: middle;\">" + data.data[i].company_num + "</td>\n" +
+                    "                    <td style=\"vertical-align: middle;\">" + data.data[i].pe + "</td>\n" +
+                    "                    <td style=\"vertical-align: middle;\">" + data.data[i].pe_ttm + "</td><td>"
+                for (var x = 0; x < data.data[i].order.length; x++) {
+                    html += "<a target=\"_blank\"\n" +
+                        "                           class=\"btn_no\">" + data.data[i].order[x].name + "<br>(" + data.data[i].order[x].pe_ttm + ")</a>"
+                }
+                html += "</td></tr>"
+                for (var j = 0; j < data.data[i].sub.length; j++) {
+                    html += "<tr>\n" +
+                        "                    <td style=\"text-align: left;vertical-align: middle;\">" + data.industry[i].sub[j] + "</td>\n" +
+                        "                    <td style=\"vertical-align: middle;\">" + data.data[i].sub[j].company_num + "</td>\n" +
+                        "                    <td style=\"vertical-align: middle;\">" + data.data[i].sub[j].pe + "</td>\n" +
+                        "                    <td style=\"vertical-align: middle;\">" + data.data[i].sub[j].pe_ttm + "</td><td>"
+                    for (var x = 0; x < data.data[i].sub[j].order.length; x++) {
+                        html += "<a target=\"_blank\"\n" +
+                            "                           class=\"btn_no\">" + data.data[i].sub[j].order[x].name + "<br>(" + data.data[i].sub[j].order[x].pe_ttm + ")</a>"
+                    }
+                    html += "</td></tr>"
+                }
+            }
+            html += "</tbody></table>"
+            $("#table").html(html)
+        }
+
+    </script>
+
+
+{% endblock %}

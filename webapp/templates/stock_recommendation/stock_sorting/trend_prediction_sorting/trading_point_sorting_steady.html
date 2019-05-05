@@ -1,0 +1,200 @@
+{% extends "stock_recommendation/stock_sorting/trend_prediction_sorting/trend_prediction_sorting_base.html" %}
+{% block styles %}
+    <link href="{{ url_for('static',filename='assets/css/stock_recommendation/slider.css') }}" rel="stylesheet"
+          type="text/css"/>
+{% endblock %}
+{% block pagetitle %}
+    <div class="page-title-alt-bg"></div>
+    <div class="page-title-box">
+        <ol class="breadcrumb float-right">
+            <li class="breadcrumb-item"><a href="javascript:void(0);">个股排序</a></li>
+            <li class="breadcrumb-item"><a href="javascript:void(0);">走势预测排序</a></li>
+            <li class="breadcrumb-item active">买点统计排序</li>
+        </ol>
+        <h4 class="page-title">买点统计排序</h4>
+        <div class="pb-1">根据每只股票当日是否出现买点及和最近卖点的距离进行排序。</div>
+    </div>
+{% endblock %}
+
+{% block page_container %}
+    <div class="row">
+        <div class="col-2 pl-5">
+            <div class="row">
+                <div class="nav flex-column nav-pills nav-pills-tab" id="v-pills-tab" role="tablist"
+                     aria-orientation="vertical">
+                    {% for day in date_list %}
+                        {% if day==date %}
+                            <a class="nav-link active mb-2"
+                               href="{{ url_for('stock_recommendation.trading_point_sorting',mode=0,date=day) }}">
+                                {{ "%s/%s/%s"|format(day[0:4],day[4:6],day[6:8]) }}
+                            </a>
+                        {% else %}
+                            <a class="nav-link mb-2"
+                               href="{{ url_for('stock_recommendation.trading_point_sorting',mode=0,date=day) }}">
+                                {{ "%s/%s/%s"|format(day[0:4],day[4:6],day[6:8]) }}
+                            </a>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+            </div> <!-- end row-->
+        </div>
+        <div class="col-10">
+            <div class="text-right">
+                <a href="{{ url_for('stock_recommendation.trading_point_sorting',mode=0,date=date) }}" class="btn"
+                   style="color: black;background-color: #DDDDDD">积极方式</a>
+                <a href="{{ url_for('stock_recommendation.trading_point_sorting',mode=1,date=date) }}"
+                   class="btn btn-info" style="color: white">稳健方式</a>
+                <a href="{{ url_for('stock_recommendation.trading_point_sorting',mode=2,date=date) }}" class="btn"
+                   style="color: black;background-color: #DDDDDD">综合展示</a>
+            </div>
+            <div class="row">
+                <div style="width: 100%;height: 600px;" id="chart"></div>
+            </div>
+            <div class="row" style="color: red">
+                注：横虚线为近期的买卖点数平均值。当买点数显著大于卖点数或平均数时，为入市时机；反之，则为离市时机。
+            </div>
+            <div class="row">
+                <h4>稳健方式出现买点的股票: <span style="color: #FF0000; font-size: 24px" id="buy_count"></span> 只</h4>
+            </div>
+            <div class="row" id="table"></div>
+            <div class="row"><p>- 以上所列股票为当日出现买点的股票。<br/>- 买点可作为买入该股票择时的一种参考。<br/></p></div>
+
+        </div>
+    </div>
+{% endblock %}
+{% block page_scripts %}
+    <script src="{{ url_for('static',filename='libs/sparkline/jquery.sparkline.min.js') }}"></script>
+    <script src="{{ url_for('static',filename='libs/echarts/echarts.js') }}"></script>
+    <script>
+        $.ajax({
+            type: "GET",
+            url: "{{ url_for('stock_recommendation.api_trading_point_sorting_steady') }}",
+            data: {date: '20181101'},
+            dataType: "json",
+            success: function (r) {
+                draw_chart(r.chart)
+                show_table(r.table)
+            }
+        });
+
+        function draw_chart(rawData) {
+            var myChart = echarts.init(document.getElementById('chart'));
+            for (var i = rawData.category.length; i > rawData.category.length - 3; i--) {
+                rawData.category[i - 1] = {value: rawData.category[i - 1], textStyle: {fontSize: 12, color: 'red'}}
+            }
+            $("#buy_count").html(rawData.buy[rawData.buy.length - 1]);
+            var chart_option = {
+                title: {
+                    text: '稳健方式下买卖点数量走势',
+                },
+                tooltip: {
+                    trigger: 'axis'
+                },
+                legend: {
+                    top: 50,
+                    data: ['买点数', '卖点数']
+                },
+                grid: {
+                    top: 80,
+                    left: '0',
+                    right: '40',
+                    bottom: '60',
+                    containLabel: true
+                },
+                calculable: true,
+                xAxis: [
+                    {
+                        type: 'category',
+                        axisLabel: {interval: 0, rotate: -90},
+                        data: rawData.category
+                    }
+                ],
+                yAxis: [
+                    {
+                        type: 'value'
+                    }
+                ],
+                color: ['#cd5e63', '#1ab394'],
+                series: [
+                    {
+                        name: '买点数',
+                        type: 'line',
+                        data: rawData.buy,
+                        markPoint: {
+                            data: [
+                                {type: 'max', name: '最大值'},
+                                {name: '今日', coord: [rawData.category[rawData.category.length - 1]]}
+                            ]
+                        },
+                        markLine: {
+                            precision: 0,
+                            data: [
+                                {type: 'average', name: '平均值'}
+                            ]
+                        }
+                    },
+                    {
+                        name: '卖点数',
+                        type: 'line',
+                        data: rawData.sell,
+                        markPoint: {
+                            data: [
+                                {type: 'max', name: '最大值'},
+                                {name: '今日', coord: [rawData.category[rawData.category.length - 1]]}
+                            ]
+                        },
+                        markLine: {
+                            precision: 0,
+                            data: [
+                                {type: 'average', name: '平均值'}
+                            ]
+                        }
+                    }
+                ]
+            };
+            myChart.setOption(chart_option);
+        }
+
+        function show_table(data) {
+            var html = "<table class=\"table table-hover\" style=\"table-layout: fixed; text-align: center;\">\n" +
+                "                    <thead>\n" +
+                "                    <tr>\n" +
+                "                        <th style=\"width: 50px;\">#</th>\n" +
+                "                        <th style=\"width: 100px;\">股票名称</th>\n" +
+                "                        <th style=\"width: 300px;\">近60天走势及高低点/买点</th>\n" +
+                "                        <th>近1年价格区间及当前位置</th>\n" +
+                "                        <th style=\"width: 80px;\">换手率</th>\n" +
+                "                    </tr>\n" +
+                "                    </thead>\n" +
+                "                    <tbody>"
+            for (i = 0; i < data.length; i++) {
+                var position = (data[i].close - data[i].min) / (data[i].max - data[i].min) * 100
+                html += "<tr>\n" +
+                    "                <td style=\"vertical-align: middle;\">" + (i + 1) + "</td>\n" +
+                    "                <td style=\"vertical-align: middle;\"><a target=\"_blank\"><span style=\"color:#FF0000\">" + data[i].name + "<br>(" + data[i].symbol + ")<span></span></span></a>\n" +
+                    "                </td>\n" +
+                    "                <td><span class=\"sparkslim\">" + data[i].bar + "</span>\n" +
+                    "                </td>\n" +
+                    "                <td><span class=\"irs\"><span class=\"irs\"><span class=\"irs-line\" tabindex=\"-1\"><span\n" +
+                    "                        class=\"irs-line-left\"></span><span class=\"irs-line-mid\"></span><span\n" +
+                    "                        class=\"irs-line-right\"></span></span><span class=\"irs-min\">" + data[0].min + "</span> <span class=\"irs-max\">" + data[0].max + "</span> <span\n" +
+                    "                        class=\"irs-from\" style=\"left: 42%;\">" + position.toFixed(2) + "%</span> </span><span class=\"irs-slider\"\n" +
+                    "                                                                                       style=\"left: " + position * 0.95 + "%;\"></span> </span>\n" +
+                    "                </td>\n" +
+                    "                <td style=\"vertical-align: middle;\">" + data[i].turnover_rate + "%</td>\n" +
+                    "            </tr>"
+            }
+            html += "</tbody></table>"
+            $("#table").html(html)
+            $(".sparkslim").sparkline('html', {
+                type: "line",
+                width: "100%",
+                height: "40",
+                spotRadius: 3,
+                lineColor: "#adadad",
+                fillColor: "#f4fce1"
+            });
+        }
+
+    </script>
+{% endblock %}

@@ -1,0 +1,72 @@
+{% extends "stock_recommendation/stock_sorting/stock_sorting_base.html" %}
+{% block pagetitle %}
+    <div class="page-title-alt-bg"></div>
+    <div class="page-title-box">
+        <ol class="breadcrumb float-right">
+            <li class="breadcrumb-item"><a href="javascript:void(0);">个股排序</a></li>
+            <li class="breadcrumb-item"><a href="javascript:void(0);">规则统计排序</a></li>
+            <li class="breadcrumb-item active">走势形态匹配</li>
+        </ol>
+        <h4 class="page-title">走势形态匹配</h4>
+        <div class="pb-1">通过自定义的走势形态匹配相关的股票。</div>
+    </div>
+{% endblock %}
+{% block page_nav %}
+    <div class="row" id="trend_prediction_sorting_navigation">
+        <a href="{{ url_for('stock_recommendation.associate_rule_sorting') }}" class="ml-1 mr-1 btn btn-secondary"
+           style="color: white;font-size: 18px;font-weight: bold">联动涨跌排序</a>
+        <a href="{{ url_for('stock_recommendation.fluctuation_combination_sorting') }}" class="ml-1 mr-1 btn btn-secondary"
+           style="color: white;font-size: 18px;font-weight: bold">幅值组合排序</a>
+        <a href="{{ url_for('stock_recommendation.fluctuation_sequencing_sorting') }}" class="ml-1 mr-1 btn btn-secondary"
+           style="color: white;font-size: 18px;font-weight: bold">涨跌幅排序</a>
+    <a href="{{ url_for('stock_recommendation.shape_matching_sorting') }}" class="ml-1 mr-1 btn btn-primary"
+           style="color: white;font-size: 18px;font-weight: bold">走势形态匹配</a>
+    </div>
+{% endblock %}
+{% block page_container %}
+    <div class="row">
+        <div class="col-2 pl-5">
+            <div class="row">
+                <div class="nav flex-column nav-pills nav-pills-tab" id="v-pills-tab" role="tablist"
+                     aria-orientation="vertical">
+                    {% for day in date_list %}
+                        {% if day==date %}
+                            <a class="nav-link active mb-2"
+                               href="{{ url_for('stock_recommendation.trading_point_sorting',mode=0,date=day) }}">
+                                {{ "%s/%s/%s"|format(day[0:4],day[4:6],day[6:8]) }}
+                            </a>
+                        {% else %}
+                            <a class="nav-link mb-2"
+                               href="{{ url_for('stock_recommendation.trading_point_sorting',mode=0,date=day) }}">
+                                {{ "%s/%s/%s"|format(day[0:4],day[4:6],day[6:8]) }}
+                            </a>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+            </div> <!-- end row-->
+        </div>
+        <div class="col-10">
+            
+            <div class="row">
+                <p>- 联动涨跌规则通过A股票推断B股票在下k个交易日是否是大涨或大跌。<br/>- 大涨是指涨幅超过2%，大跌是指跌幅超过-2%。<br/></p>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+{% block scripts %}
+    <script src="{{ url_for('static',filename='libs/sparkline/jquery.sparkline.min.js') }}"></script>
+    <script>
+        var date = "{{ date }}"
+    </script>
+    <script>
+        $.ajax({
+            type: "GET",
+            url: "{{ url_for('stock_recommendation.api_associate_rule_sorting') }}",
+            data: {date: '20181101'},
+            dataType: "json",
+            success: function (r) {
+                show_associate_rule(r)
+            }
+        });
+    </script>
+{% endblock %}

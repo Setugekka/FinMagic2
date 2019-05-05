@@ -1,0 +1,889 @@
+{% extends "stock_prediction/stock_prediction_base.html" %}
+{% block page_container %}
+    <div class="row">
+        <div class="col-2 pl-5">
+            <div class="row">
+                <div class="nav flex-column nav-pills nav-pills-tab" id="v-pills-tab" role="tablist"
+                     aria-orientation="vertical">
+                    {% for day in date_list %}
+                        {% if day==date %}
+                            <a class="nav-link active mb-2"
+                               href="{{ url_for('stock_prediction.trend_prediction',code=stock.ts_code,date=day) }}">
+                                {{ "%s/%s/%s"|format(day[0:4],day[4:6],day[6:8]) }}
+                            </a>
+                        {% else %}
+                            <a class="nav-link mb-2"
+                               href="{{ url_for('stock_prediction.trend_prediction',code=stock.ts_code,date=day) }}">
+                                {{ "%s/%s/%s"|format(day[0:4],day[4:6],day[6:8]) }}
+                            </a>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+            </div> <!-- end row-->
+        </div>
+        <div class="col-10">
+            <div class="card">
+                <div class="card-header" style="font-size: 20px;font-weight: bold">
+                    基本行情({{ "%s/%s/%s"|format(date[0:4],date[4:6],date[6:8]) }})
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-2 text-center" style="font-size: 30px;font-weight:bold;color:#00A2C7">
+                            <p>{{ stock.name }}<br/>{{ stock.symbol }}</p>
+                        </div>
+                        <div class="col-10" id="today_data">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header" style="font-size: 20px;font-weight: bold">
+                    联动涨跌规则
+                    <button class="btn btn-info">详解</button>
+                    <button class="btn btn-info">排序</button>
+                </div>
+                <div class="card-body">
+                    <div class="mt-1 mb-1" style="border-left: 5px solid skyblue;background-color: #F6F6F6"
+                         id="rise_rise"></div>
+                    <div class="mt-1 mb-1" style="border-left: 5px solid skyblue;background-color: #F6F6F6"
+                         id="rise_fall"></div>
+                    <div class="mt-1 mb-1" style="border-left: 5px solid skyblue;background-color: #F6F6F6"
+                         id="rise_not_rise"></div>
+                    <div class="mt-1 mb-1" style="border-left: 5px solid skyblue;background-color: #F6F6F6"
+                         id="rise_not_fall"></div>
+                    <div class="mt-1 mb-1" style="border-left: 5px solid skyblue;background-color: #F6F6F6"
+                         id="fall_rise"></div>
+                    <div class="mt-1 mb-1" style="border-left: 5px solid skyblue;background-color: #F6F6F6"
+                         id="fall_fall"></div>
+                    <div class="mt-1 mb-1" style="border-left: 5px solid skyblue;background-color: #F6F6F6"
+                         id="fall_not_rise"></div>
+                    <div class="mt-1 mb-1" style="border-left: 5px solid skyblue;background-color: #F6F6F6"
+                         id="fall_not_fall"></div>
+                </div>
+            </div>
+
+
+            <div class="card">
+                <div class="card-header" style="font-size: 20px;font-weight: bold">
+                    幅值组合统计
+                    <button class="btn btn-info">详解</button>
+                    <button class="btn btn-info">排序</button>
+                </div>
+                <div class="card-body">
+                    <div>
+                        <div style="float:right;margin:0 30px -10px 0;color: red">加权幅值：<span
+                                style="font-size:20px;"> - </span>
+                        </div>
+                    </div>
+                    <div style="width: 100%;height: 700px" id="fluctuation_statistics_chart"></div>
+                    <div class="row mt-3" id="fluctuation_statistics_table">
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header" style="font-size: 20px;font-weight: bold">
+                    幅值组合关联
+                    <button class="btn btn-info">详解</button>
+                    <button class="btn btn-info">排序</button>
+                </div>
+                <div class="card-body">
+                    <div>
+                        <div style="float:right;margin:0 30px -10px 0;color: green">加权幅值：<span
+                                style="font-size:20px;">-</span>
+                        </div>
+                    </div>
+                    <div style="width: 100%;height: 700px" id="fluctuation_correlation_chart"></div>
+                    <div class="row mt-3" id="fluctuation_correlation_table">
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header" style="font-size: 20px;font-weight: bold">
+                    涨跌幅排序
+                    <button class="btn btn-info">详解</button>
+                    <button class="btn btn-info">排序</button>
+                </div>
+                <div class="card-body">
+                    <div class="row" id="fluctuation_sequencing_table">
+                    </div>
+                    <div class="row">
+                        <div style="width: 100%;height: 500px" id="fluctuation_sequencing_chart"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header" style="font-size: 20px;font-weight: bold">
+                    同涨跌股票
+                    <button class="btn btn-info">详解</button>
+                </div>
+                <div class="card-body">
+                    <div class="row" id="similarity_fluctuation"></div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header" style="font-size: 20px;font-weight: bold">
+                    同走势股票
+                    <button class="btn btn-info">详解</button>
+                </div>
+                <div class="card-body">
+                    <div class="row" id="similarity_trend">
+                    </div>
+                </div>
+            </div>
+
+
+        </div>
+    </div>
+{% endblock %}
+{% block styles %}
+{% endblock %}
+{% block page_scripts %}
+    <script src="{{ url_for('static',filename='libs/sparkline/jquery.sparkline.min.js') }}"></script>
+    <script src="{{ url_for('static',filename='libs/echarts/echarts.js') }}"></script>
+    <script>
+        $.ajax({
+            type: "GET",
+            url: "{{ url_for('stock_prediction.api_rule_statistics') }}",
+            data: {code: stock, date: date},
+            dataType: "json",
+            success: function (r) {
+                show_today_data(r.today_bar_data, r.today_basic_data)
+                show_associate_rule(r.associate_rule)
+                show_fluctuation_statistics(r.fluctuation_statistics)
+                show_fluctuation_correlation(r.fluctuation_correlation)
+                show_fluctuation_sequencing(r.fluctuation_sequencing)
+                show_similarity_fluctuation(r.similarity_fluctuation)
+                show_similarity_trend(r.similarity_trend)
+            }
+        });
+
+        function show_today_data(bar, basic) {
+            var fontcolor = ''
+            if (bar.change > 0) {
+                fontcolor = 'red'
+            } else if (bar.change < 0) {
+                fontcolor = 'green'
+            } else {
+                fontcolor = '#00A2C7'
+            }
+            var html = "<table style=\"width: 100%;height: 100%\">\n" +
+                "                                <tbody>\n" +
+                "                                <tr>";
+            html += "<td>涨幅：<span style=\"color: " + fontcolor + ";font-weight: bold\">" + bar.pct_chg + "</span></td>"
+            html += "<td>今开：<span style=\"color: " + fontcolor + ";font-weight: bold\">" + bar.open + "</span></td>"
+            html += "<td>换手率：<span style=\"color: " + fontcolor + ";font-weight: bold\">" + basic.turnover_rate + "</span></td>"
+            html += "<td>成交量：<span style=\"color: " + fontcolor + ";font-weight: bold\">" + bar.vol + "</span></td></tr><tr>"
+            html += "<td>今收：<span style=\"color: " + fontcolor + ";font-weight: bold\">" + bar.close + "</span></td>"
+            html += "<td>最高：<span style=\"color: " + fontcolor + ";font-weight: bold\">" + bar.high + "</span></td>"
+            html += "<td>市盈率：<span style=\"color: " + fontcolor + ";font-weight: bold\">" + basic.pe + "</span></td>"
+            html += "<td>成交额：<span style=\"color: " + fontcolor + ";font-weight: bold\">" + bar.amount + "</span></td></tr><tr>"
+            html += "<td>昨收：<span style=\"color: " + fontcolor + ";font-weight: bold\">" + bar.pre_close + "</span></td>"
+            html += "<td>最低：<span style=\"color: " + fontcolor + ";font-weight: bold\">" + bar.low + "</span></td>"
+            html += "<td>市净率：<span style=\"color: " + fontcolor + ";font-weight: bold\">" + basic.pb + "</span></td>"
+            html += "<td>流通值：<span style=\"color: " + fontcolor + ";font-weight: bold\">" + basic.circ_mv + "</span></td>"
+            html += "</tr>\n" +
+                "                                </tbody>\n" +
+                "                            </table>"
+            $("#today_data").html(html)
+        }
+
+        function show_associate_rule(data) {
+            if (data.rise_rise.length != 0) {
+                var html = "<table><tbody>"
+                for (i = 0; i < data.rise_rise.length; i++) {
+                    html += "<tr>\n" +
+                        "                                <td width=\"400px\">[<a>" + data.rise_rise[i][0] + "</a>] 在 [{{ "%s/%s/%s"|format(date[0:4],date[4:6],date[6:8]) }}] 上涨\n" +
+                        "                                    [" + data.rise_rise[i][1] * 100 + "%] (" + data.rise_rise[i][4] + "/" + data.rise_rise[i][3] + ")<br/>\n" +
+                        "                                    <div style=\"background-color: #FFC400;height: 5px;width: 100%\">\n" +
+                        "                                        <div style=\"width: " + data.rise_rise[i][1] * 100 + "%;background-color: #2EB0CE;height: 5px\"\n" +
+                        "                                        ></div>\n" +
+                        "                                    </div>\n" +
+                        "\n" +
+                        "                                </td>\n" +
+                        "                                <td style=\"padding-left: 10px;padding-right: 10px\"> →</td>\n" +
+                        "                                <td width=\"400px\">[<a>{{ stock.name }}</a>] 在 <span>[下1天]</span> <span\n" +
+                        "                                >大涨(>2%)</span> 的概率为 [" + data.rise_rise[i][2] * 100 + "%](" + data.rise_rise[i][5] + "/" + data.rise_rise[i][4] + ") <br>\n" +
+                        "                                    <div\n" +
+                        "                                            style=\"background-color: #FFC400;height: 5px;width: 100%\">\n" +
+                        "                                        <div style=\"width: " + data.rise_rise[i][2] * 100 + "%;background-color: #2EB0CE;height: 5px;\"\n" +
+                        "                                        ></div>\n" +
+                        "                                    </div>\n" +
+                        "                                </td>\n" +
+                        "                            </tr>"
+                }
+                html += "</tbody></table>"
+                $("#rise_rise").html(html)
+            }
+            if (data.rise_fall.length != 0) {
+                var html = "<table><tbody>"
+                for (i = 0; i < data.rise_fall.length; i++) {
+                    html += "<tr>\n" +
+                        "                                <td width=\"400px\">[<a>" + data.rise_fall[i][0] + "</a>] 在 [{{ "%s/%s/%s"|format(date[0:4],date[4:6],date[6:8]) }}] 上涨\n" +
+                        "                                    [" + data.rise_fall[i][1] * 100 + "%] (" + data.rise_fall[i][4] + "/" + data.rise_fall[i][3] + ")<br/>\n" +
+                        "                                    <div style=\"background-color: #FFC400;height: 5px;width: 100%\">\n" +
+                        "                                        <div style=\"width: " + data.rise_fall[i][1] * 100 + "%;background-color: #2EB0CE;height: 5px\"\n" +
+                        "                                        ></div>\n" +
+                        "                                    </div>\n" +
+                        "\n" +
+                        "                                </td>\n" +
+                        "                                <td style=\"padding-left: 10px;padding-right: 10px\"> →</td>\n" +
+                        "                                <td width=\"400px\">[<a>{{ stock.name }}</a>] 在 <span>[下1天]</span> <span\n" +
+                        "                                >大跌(<-2%)</span> 的概率为 [" + data.rise_fall[i][2] * 100 + "%](" + data.rise_fall[i][5] + "/" + data.rise_fall[i][4] + ") <br>\n" +
+                        "                                    <div\n" +
+                        "                                            style=\"background-color: #FFC400;height: 5px;width: 100%\">\n" +
+                        "                                        <div style=\"width: " + data.rise_fall[i][2] * 100 + "%;background-color: #2EB0CE;height: 5px;\"\n" +
+                        "                                        ></div>\n" +
+                        "                                    </div>\n" +
+                        "                                </td>\n" +
+                        "                            </tr>"
+                }
+                html += "</tbody></table>"
+                $("#rise_fall").html(html)
+            }
+            if (data.rise_not_rise.length != 0) {
+                var html = "<table><tbody>"
+                for (i = 0; i < data.rise_not_rise.length; i++) {
+                    html += "<tr>\n" +
+                        "                                <td width=\"400px\">[<a>" + data.rise_not_rise[i][0] + "</a>] 在 [{{ "%s/%s/%s"|format(date[0:4],date[4:6],date[6:8]) }}] 上涨\n" +
+                        "                                    [" + data.rise_not_rise[i][1] * 100 + "%] (" + data.rise_not_rise[i][4] + "/" + data.rise_not_rise[i][3] + ")<br/>\n" +
+                        "                                    <div style=\"background-color: #FFC400;height: 5px;width: 100%\">\n" +
+                        "                                        <div style=\"width: " + data.rise_not_rise[i][1] * 100 + "%;background-color: #2EB0CE;height: 5px\"\n" +
+                        "                                        ></div>\n" +
+                        "                                    </div>\n" +
+                        "\n" +
+                        "                                </td>\n" +
+                        "                                <td style=\"padding-left: 10px;padding-right: 10px\"> →</td>\n" +
+                        "                                <td width=\"400px\">[<a>{{ stock.name }}</a>] 在 <span>[下1天]</span> <span\n" +
+                        "                                >不会大涨(<2%)</span> 的概率为 [" + data.rise_not_rise[i][2] * 100 + "%](" + data.rise_not_rise[i][5] + "/" + data.rise_not_rise[i][4] + ") <br>\n" +
+                        "                                    <div\n" +
+                        "                                            style=\"background-color: #FFC400;height: 5px;width: 100%\">\n" +
+                        "                                        <div style=\"width: " + data.rise_not_rise[i][2] * 100 + "%;background-color: #2EB0CE;height: 5px;\"\n" +
+                        "                                        ></div>\n" +
+                        "                                    </div>\n" +
+                        "                                </td>\n" +
+                        "                            </tr>"
+                }
+                html += "</tbody></table>"
+                $("#rise_not_rise").html(html)
+            }
+            if (data.rise_not_fall.length != 0) {
+                var html = "<table><tbody>"
+                for (i = 0; i < data.rise_not_fall.length; i++) {
+                    html += "<tr>\n" +
+                        "                                <td width=\"400px\">[<a>" + data.rise_not_fall[i][0] + "</a>] 在 [{{ "%s/%s/%s"|format(date[0:4],date[4:6],date[6:8]) }}] 上涨\n" +
+                        "                                    [" + data.rise_not_fall[i][1] * 100 + "%] (" + data.rise_not_fall[i][4] + "/" + data.rise_not_fall[i][3] + ")<br/>\n" +
+                        "                                    <div style=\"background-color: #FFC400;height: 5px;width: 100%\">\n" +
+                        "                                        <div style=\"width: " + data.rise_not_fall[i][1] * 100 + "%;background-color: #2EB0CE;height: 5px\"\n" +
+                        "                                        ></div>\n" +
+                        "                                    </div>\n" +
+                        "\n" +
+                        "                                </td>\n" +
+                        "                                <td style=\"padding-left: 10px;padding-right: 10px\"> →</td>\n" +
+                        "                                <td width=\"400px\">[<a>{{ stock.name }}</a>] 在 <span>[下1天]</span> <span\n" +
+                        "                                >不会大跌(>-2%)</span> 的概率为 [" + data.rise_not_fall[i][2] * 100 + "%](" + data.rise_not_fall[i][5] + "/" + data.rise_not_fall[i][4] + ") <br>\n" +
+                        "                                    <div\n" +
+                        "                                            style=\"background-color: #FFC400;height: 5px;width: 100%\">\n" +
+                        "                                        <div style=\"width: " + data.rise_not_fall[i][2] * 100 + "%;background-color: #2EB0CE;height: 5px;\"\n" +
+                        "                                        ></div>\n" +
+                        "                                    </div>\n" +
+                        "                                </td>\n" +
+                        "                            </tr>"
+                }
+                html += "</tbody></table>"
+                $("#rise_not_fall").html(html)
+
+            }
+            if (data.fall_rise.length != 0) {
+                var html = "<table><tbody>"
+                for (i = 0; i < data.fall_rise.length; i++) {
+                    html += "<tr>\n" +
+                        "                                <td width=\"400px\">[<a>" + data.fall_rise[i][0] + "</a>] 在 [{{ "%s/%s/%s"|format(date[0:4],date[4:6],date[6:8]) }}] 下跌\n" +
+                        "                                    [" + data.fall_rise[i][1] * 100 + "%] (" + data.fall_rise[i][4] + "/" + data.fall_rise[i][3] + ")<br/>\n" +
+                        "                                    <div style=\"background-color: #FFC400;height: 5px;width: 100%\">\n" +
+                        "                                        <div style=\"width: " + data.fall_rise[i][1] * 100 + "%;background-color: #2EB0CE;height: 5px\"\n" +
+                        "                                        ></div>\n" +
+                        "                                    </div>\n" +
+                        "\n" +
+                        "                                </td>\n" +
+                        "                                <td style=\"padding-left: 10px;padding-right: 10px\"> →</td>\n" +
+                        "                                <td width=\"400px\">[<a>{{ stock.name }}</a>] 在 <span>[下1天]</span> <span\n" +
+                        "                                >大涨(>2%)</span> 的概率为 [" + data.fall_rise[i][2] * 100 + "%](" + data.fall_rise[i][5] + "/" + data.fall_rise[i][4] + ") <br>\n" +
+                        "                                    <div\n" +
+                        "                                            style=\"background-color: #FFC400;height: 5px;width: 100%\">\n" +
+                        "                                        <div style=\"width: " + data.fall_rise[i][2] * 100 + "%;background-color: #2EB0CE;height: 5px;\"\n" +
+                        "                                        ></div>\n" +
+                        "                                    </div>\n" +
+                        "                                </td>\n" +
+                        "                            </tr>"
+                }
+                html += "</tbody></table>"
+                $("#fall_rise").html(html)
+            }
+            if (data.fall_fall.length != 0) {
+                var html = "<table><tbody>"
+                for (i = 0; i < data.fall_fall.length; i++) {
+                    html += "<tr>\n" +
+                        "                                <td width=\"400px\">[<a>" + data.fall_fall[i][0] + "</a>] 在 [{{ "%s/%s/%s"|format(date[0:4],date[4:6],date[6:8]) }}] 下跌\n" +
+                        "                                    [" + data.fall_fall[i][1] * 100 + "%] (" + data.fall_fall[i][4] + "/" + data.fall_fall[i][3] + ")<br/>\n" +
+                        "                                    <div style=\"background-color: #FFC400;height: 5px;width: 100%\">\n" +
+                        "                                        <div style=\"width: " + data.fall_fall[i][1] * 100 + "%;background-color: #2EB0CE;height: 5px\"\n" +
+                        "                                        ></div>\n" +
+                        "                                    </div>\n" +
+                        "\n" +
+                        "                                </td>\n" +
+                        "                                <td style=\"padding-left: 10px;padding-right: 10px\"> →</td>\n" +
+                        "                                <td width=\"400px\">[<a>{{ stock.name }}</a>] 在 <span>[下1天]</span> <span\n" +
+                        "                                >大跌(<-2%)</span> 的概率为 [" + data.fall_fall[i][2] * 100 + "%](" + data.fall_fall[i][5] + "/" + data.fall_fall[i][4] + ") <br>\n" +
+                        "                                    <div\n" +
+                        "                                            style=\"background-color: #FFC400;height: 5px;width: 100%\">\n" +
+                        "                                        <div style=\"width: " + data.fall_fall[i][2] * 100 + "%;background-color: #2EB0CE;height: 5px;\"\n" +
+                        "                                        ></div>\n" +
+                        "                                    </div>\n" +
+                        "                                </td>\n" +
+                        "                            </tr>"
+                }
+                html += "</tbody></table>"
+                $("#fall_fall").html(html)
+            }
+            if (data.fall_not_rise.length != 0) {
+                var html = "<table><tbody>"
+                for (i = 0; i < data.fall_not_rise.length; i++) {
+                    html += "<tr>\n" +
+                        "                                <td width=\"400px\">[<a>" + data.fall_not_rise[i][0] + "</a>] 在 [{{ "%s/%s/%s"|format(date[0:4],date[4:6],date[6:8]) }}] 下跌\n" +
+                        "                                    [" + data.fall_not_rise[i][1] * 100 + "%] (" + data.fall_not_rise[i][4] + "/" + data.fall_not_rise[i][3] + ")<br/>\n" +
+                        "                                    <div style=\"background-color: #FFC400;height: 5px;width: 100%\">\n" +
+                        "                                        <div style=\"width: " + data.fall_not_rise[i][1] * 100 + "%;background-color: #2EB0CE;height: 5px\"\n" +
+                        "                                        ></div>\n" +
+                        "                                    </div>\n" +
+                        "\n" +
+                        "                                </td>\n" +
+                        "                                <td style=\"padding-left: 10px;padding-right: 10px\"> →</td>\n" +
+                        "                                <td width=\"400px\">[<a>{{ stock.name }}</a>] 在 <span>[下1天]</span> <span\n" +
+                        "                                >不会大涨(<2%)</span> 的概率为 [" + data.fall_not_rise[i][2] * 100 + "%](" + data.fall_not_rise[i][5] + "/" + data.fall_not_rise[i][4] + ") <br>\n" +
+                        "                                    <div\n" +
+                        "                                            style=\"background-color: #FFC400;height: 5px;width: 100%\">\n" +
+                        "                                        <div style=\"width: " + data.fall_not_rise[i][2] * 100 + "%;background-color: #2EB0CE;height: 5px;\"\n" +
+                        "                                        ></div>\n" +
+                        "                                    </div>\n" +
+                        "                                </td>\n" +
+                        "                            </tr>"
+                }
+                html += "</tbody></table>"
+                $("#fall_not_rise").html(html)
+            }
+            if (data.fall_not_fall.length != 0) {
+                var html = "<table><tbody>"
+                for (i = 0; i < data.fall_not_fall.length; i++) {
+                    html += "<tr>\n" +
+                        "                                <td width=\"400px\">[<a>" + data.fall_not_fall[i][0] + "</a>] 在 [{{ "%s/%s/%s"|format(date[0:4],date[4:6],date[6:8]) }}] 下跌\n" +
+                        "                                    [" + data.fall_not_fall[i][1] * 100 + "%] (" + data.fall_not_fall[i][4] + "/" + data.fall_not_fall[i][3] + ")<br/>\n" +
+                        "                                    <div style=\"background-color: #FFC400;height: 5px;width: 100%\">\n" +
+                        "                                        <div style=\"width: " + data.fall_not_fall[i][1] * 100 + "%;background-color: #2EB0CE;height: 5px\"\n" +
+                        "                                        ></div>\n" +
+                        "                                    </div>\n" +
+                        "\n" +
+                        "                                </td>\n" +
+                        "                                <td style=\"padding-left: 10px;padding-right: 10px\"> →</td>\n" +
+                        "                                <td width=\"400px\">[<a>{{ stock.name }}</a>] 在 <span>[下1天]</span> <span\n" +
+                        "                                >不会大跌(>-2%)</span> 的概率为 [" + data.fall_not_fall[i][2] * 100 + "%](" + data.fall_not_fall[i][5] + "/" + data.fall_not_fall[i][4] + ") <br>\n" +
+                        "                                    <div\n" +
+                        "                                            style=\"background-color: #FFC400;height: 5px;width: 100%\">\n" +
+                        "                                        <div style=\"width: " + data.fall_not_fall[i][2] * 100 + "%;background-color: #2EB0CE;height: 5px;\"\n" +
+                        "                                        ></div>\n" +
+                        "                                    </div>\n" +
+                        "                                </td>\n" +
+                        "                            </tr>"
+                }
+                html += "</tbody></table>"
+                $("#fall_not_fall").html(html)
+            }
+        }
+
+        function show_fluctuation_statistics(rawData) {
+            var myChart = echarts.init(document.getElementById('fluctuation_statistics_chart'));
+            var data = [];
+            for (i = 0; i < 4; i++) {
+                for (j = 0; j < 21; j++) {
+                    data.push([i, j, 0])
+                }
+            }
+            for (i = 0; i < rawData.five_D0_list.length; i++) {
+                data[rawData.five_D0_list[i] + 10][2] = rawData.five_proportion_list[i] * 100
+            }
+            for (i = 0; i < rawData.four_D0_list.length; i++) {
+                data[21 + rawData.four_D0_list[i] + 10][2] = rawData.four_proportion_list[i] * 100
+            }
+            for (i = 0; i < rawData.three_D0_list.length; i++) {
+                data[42 + rawData.three_D0_list[i] + 10][2] = rawData.three_proportion_list[i] * 100
+            }
+            for (i = 0; i < rawData.two_D0_list.length; i++) {
+                data[63 + rawData.two_D0_list[i] + 10][2] = rawData.two_proportion_list[i] * 100
+            }
+            var levels = ['-10', '-9', '-8', '-7', '-6', '-5', '-4', '-3', '-2', '-1', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10'];
+            var grams = ['5元统计', '4元统计', '3元统计', '2元统计'];
+            var chart_option = {
+                tooltip: {
+                    position: 'top',
+                    formatter: function (params) {
+                        return 'D0 = ' + (params.value[0] - 10) + '<br/>次数占比：' + params.value[1] + '%';
+                    }
+                },
+                title: [],
+                singleAxis: [],
+                series: []
+            };
+            echarts.util.each(grams, function (gram, idx) {
+                chart_option.title.push({
+                    textBaseline: 'middle',
+                    top: (idx + 0.5) * 100 / 4 + '%',
+                    textStyle: {fontSize: 14, fontWeight: 'normal'},
+                    text: gram
+                });
+                chart_option.singleAxis.push({
+                    left: 75,
+                    type: 'category',
+                    boundaryGap: false,
+                    data: levels,
+                    top: (idx * 100 / 4 + 5) + '%',
+                    height: (100 / 4 - 10) + '%'
+                });
+                chart_option.series.push({
+                    singleAxisIndex: idx,
+                    coordinateSystem: 'singleAxis',
+                    type: 'scatter',
+                    data: [],
+                    symbolSize: function (dataItem) {
+                        return dataItem[1];
+                    }
+                });
+            });
+            echarts.util.each(data, function (dataItem) {
+                chart_option.series[dataItem[0]].data.push([dataItem[1], dataItem[2]]);
+            });
+            myChart.setOption(chart_option);
+
+            var html = "<table class=\"table table-striped text-center\">\n" +
+                "                            <thead>\n" +
+                "                            <tr>\n" +
+                "                                <th>统计元次</th>\n" +
+                "                                <th>D4</th>\n" +
+                "                                <th>D3</th>\n" +
+                "                                <th>D2</th>\n" +
+                "                                <th>D1</th>\n" +
+                "                                <th style=\"border-left: #cd5e63 2px solid;border-right: #cd5e63 2px solid;border-top: #cd5e63 2px solid\">\n" +
+                "                                    D0\n" +
+                "                                </th>\n" +
+                "                                <th>总次数</th>\n" +
+                "                                <th>出现次数</th>\n" +
+                "                                <th>次数占比</th>\n" +
+                "                            </tr>\n" +
+                "                            </thead>\n" +
+                "                            <tbody>";
+            for (i = 0; i < rawData.five_D0_list.length; i++) {
+                html += "<tr>\n" +
+                    "                                <td>5元统计</td>\n" +
+                    "                                <td>" + rawData.D4 + "</td>\n" +
+                    "                                <td>" + rawData.D3 + "</td>\n" +
+                    "                                <td>" + rawData.D2 + "</td>\n" +
+                    "                                <td>" + rawData.D1 + "</td>\n" +
+                    "                                <td style=\"border-left: #cd5e63 2px solid;border-right: #cd5e63 2px solid;\">" + rawData.five_D0_list[i] + "</td>\n" +
+                    "                                <td>" + rawData.five_total_count + "</td>\n" +
+                    "                                <td>" + rawData.five_appearance_count_list[i] + "</td>\n" +
+                    "                                <td>" + rawData.five_proportion_list[i] * 100 + "%</td>\n" +
+                    "                            </tr>"
+            }
+            for (i = 0; i < rawData.four_D0_list.length; i++) {
+                html += "<tr>\n" +
+                    "                                <td>4元统计</td>\n" +
+                    "                                <td>-</td>\n" +
+                    "                                <td>" + rawData.D3 + "</td>\n" +
+                    "                                <td>" + rawData.D2 + "</td>\n" +
+                    "                                <td>" + rawData.D1 + "</td>\n" +
+                    "                                <td style=\"border-left: #cd5e63 2px solid;border-right: #cd5e63 2px solid;\">" + rawData.four_D0_list[i] + "</td>\n" +
+                    "                                <td>" + rawData.four_total_count + "</td>\n" +
+                    "                                <td>" + rawData.four_appearance_count_list[i] + "</td>\n" +
+                    "                                <td>" + rawData.four_proportion_list[i] * 100 + "%</td>\n" +
+                    "                            </tr>"
+            }
+            for (i = 0; i < rawData.three_D0_list.length; i++) {
+                html += "<tr>\n" +
+                    "                                <td>3元统计</td>\n" +
+                    "                                <td>-</td>\n" +
+                    "                                <td>-</td>\n" +
+                    "                                <td>" + rawData.D2 + "</td>\n" +
+                    "                                <td>" + rawData.D1 + "</td>\n" +
+                    "                                <td style=\"border-left: #cd5e63 2px solid;border-right: #cd5e63 2px solid;\">" + rawData.three_D0_list[i] + "</td>\n" +
+                    "                                <td>" + rawData.three_total_count + "</td>\n" +
+                    "                                <td>" + rawData.three_appearance_count_list[i] + "</td>\n" +
+                    "                                <td>" + rawData.three_proportion_list[i] * 100 + "%</td>\n" +
+                    "                            </tr>"
+            }
+            for (i = 0; i < rawData.two_D0_list.length; i++) {
+                html += "<tr>\n" +
+                    "                                <td>2元统计</td>\n" +
+                    "                                <td>-</td>\n" +
+                    "                                <td>-</td>\n" +
+                    "                                <td>-</td>\n" +
+                    "                                <td>" + rawData.D1 + "</td>\n" +
+                    "                                <td style=\"border-left: #cd5e63 2px solid;border-right: #cd5e63 2px solid;\">" + rawData.two_D0_list[i] + "</td>\n" +
+                    "                                <td>" + rawData.two_total_count + "</td>\n" +
+                    "                                <td>" + rawData.two_appearance_count_list[i] + "</td>\n" +
+                    "                                <td>" + rawData.two_proportion_list[i] * 100 + "%</td>\n" +
+                    "                            </tr>"
+            }
+            for (i = 0; i < rawData.one_D0_list.length; i++) {
+                if (i == rawData.one_D0_list.length - 1) {
+                    html += "<tr>\n" +
+                        "                                <td>1元统计</td>\n" +
+                        "                                <td>-</td>\n" +
+                        "                                <td>-</td>\n" +
+                        "                                <td>-</td>\n" +
+                        "                                <td>-</td>\n" +
+                        "                                <td style=\"border-left: #cd5e63 2px solid;border-right: #cd5e63 2px solid;border-bottom: #cd5e63 2px solid;\">" + rawData.one_D0_list[i] + "</td>\n" +
+                        "                                <td>" + rawData.one_total_count + "</td>\n" +
+                        "                                <td>" + rawData.one_appearance_count_list[i] + "</td>\n" +
+                        "                                <td>" + rawData.one_proportion_list[i] * 100 + "%</td>\n" +
+                        "                            </tr>"
+                }
+                else {
+                    html += "<tr>\n" +
+                        "                                <td>1元统计</td>\n" +
+                        "                                <td>-</td>\n" +
+                        "                                <td>-</td>\n" +
+                        "                                <td>-</td>\n" +
+                        "                                <td>-</td>\n" +
+                        "                                <td style=\"border-left: #cd5e63 2px solid;border-right: #cd5e63 2px solid;\">" + rawData.one_D0_list[i] + "</td>\n" +
+                        "                                <td>" + rawData.one_total_count + "</td>\n" +
+                        "                                <td>" + rawData.one_appearance_count_list[i] + "</td>\n" +
+                        "                                <td>" + rawData.one_proportion_list[i] * 100 + "%</td>\n" +
+                        "                            </tr>"
+                }
+            }
+            html += "</tbody></table>"
+            $("#fluctuation_statistics_table").html(html)
+        }
+
+        function show_fluctuation_correlation(rawData) {
+            var myChart = echarts.init(document.getElementById('fluctuation_correlation_chart'));
+
+            var levels = ['-10', '-9', '-8', '-7', '-6', '-5', '-4', '-3', '-2', '-1', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10'];
+
+            var days = ['1前件', '2前件', '3前件', '4前件'];
+            var data = [];
+            for (i = 0; i < 4; i++) {
+                for (j = 0; j < 21; j++) {
+                    data.push([i, j, 0])
+                }
+            }
+            for (i = 0; i < rawData.five_D0_list.length; i++) {
+                data[63 + rawData.five_D0_list[i] + 10][2] = rawData.five_proportion_list[i] * 100
+            }
+            for (i = 0; i < rawData.four_D0_list.length; i++) {
+                data[42 + rawData.four_D0_list[i] + 10][2] = rawData.four_proportion_list[i] * 100
+            }
+            for (i = 0; i < rawData.three_D0_list.length; i++) {
+                data[21 + rawData.three_D0_list[i] + 10][2] = rawData.three_proportion_list[i] * 100
+            }
+            for (i = 0; i < rawData.two_D0_list.length; i++) {
+                data[rawData.two_D0_list[i] + 10][2] = rawData.two_proportion_list[i] * 100
+            }
+            data = data.map(function (item) {
+                return [item[1], item[0], item[2]];
+            });
+            var chart_option = {
+                title: {
+                    text: '后件出现概率',
+                    textStyle: {fontSize: 18, fontWeight: 'normal'}
+                },
+                legend: {
+                    data: ['后件'],
+                    left: 'right'
+                },
+                tooltip: {
+                    position: 'top',
+                    formatter: function (params) {
+                        return 'D0 = ' + (params.value[0] - 10) + '<br/>置信度：' + params.value[2] + '%';
+                    }
+                },
+                grid: {
+                    left: 20,
+                    bottom: 10,
+                    right: 20,
+                    top: 40,
+                    containLabel: true
+                },
+                xAxis: {
+                    type: 'category',
+                    data: levels,
+                    boundaryGap: false,
+                    splitLine: {
+                        show: true,
+                        lineStyle: {
+                            color: '#999',
+                            type: 'dashed'
+                        }
+                    },
+                    axisLine: {
+                        show: false
+                    }
+                },
+                yAxis: {
+                    type: 'category',
+                    data: days,
+                    axisLine: {
+                        show: false
+                    }
+                },
+                series: [{
+                    name: '后件',
+                    type: 'scatter',
+                    symbolSize: function (val) {
+                        return val[2];
+                    },
+                    data: data
+                }]
+            };
+            myChart.setOption(chart_option);
+
+            var html = "<table class=\"table table-striped text-center\">\n" +
+                "                            <thead>\n" +
+                "                            <tr>\n" +
+                "                                <th>前件数</th>\n" +
+                "                                <th>前件</th>\n" +
+                "                                <th style=\"border-left: #cd5e63 2px solid;border-right: #cd5e63 2px solid;border-top: #cd5e63 2px solid\">\n" +
+                "                                    后件\n" +
+                "                                </th>\n" +
+                "                                <th>支持度(%)</th>\n" +
+                "                                <th>置信度(%)</th>\n" +
+                "                                <th>分子/分母</th>\n" +
+                "                            </tr>\n" +
+                "                            </thead>\n" +
+                "                            <tbody>"
+            for (i = 0; i < (rawData.five_D0_list.length > 3 ? 3 : rawData.five_D0_list.length); i++) {
+                html += "                       <tr>\n" +
+                    "                                <td>4</td>\n" +
+                    "                                <td>D4,D3,D2,D1=" + rawData.D4 + "," + rawData.D3 + "," + rawData.D2 + "," + rawData.D1 + "</td>\n" +
+                    "                                <td style=\"border-left: #cd5e63 2px solid;border-right: #cd5e63 2px solid;\">D0=" + rawData.five_D0_list[i] + "</td>\n" +
+                    "                                <td>" + rawData.five_approval_rating + "</td>\n" +
+                    "                                <td>" + rawData.five_proportion_list[i] * 100 + "%</td>\n" +
+                    "                                <td>" + rawData.five_appearance_count_list[i] + "/" + rawData.five_sample_count + "</td>\n" +
+                    "                            </tr>"
+            }
+            for (i = 0; i < (rawData.four_D0_list.length > 3 ? 3 : rawData.four_D0_list.length); i++) {
+                html += "                       <tr>\n" +
+                    "                                <td>3</td>\n" +
+                    "                                <td>D3,D2,D1=" + rawData.D3 + "," + rawData.D2 + "," + rawData.D1 + "</td>\n" +
+                    "                                <td style=\"border-left: #cd5e63 2px solid;border-right: #cd5e63 2px solid;\">D0=" + rawData.four_D0_list[i] + "</td>\n" +
+                    "                                <td>" + rawData.four_approval_rating + "</td>\n" +
+                    "                                <td>" + rawData.four_proportion_list[i] * 100 + "%</td>\n" +
+                    "                                <td>" + rawData.four_appearance_count_list[i] + "/" + rawData.four_sample_count + "</td>\n" +
+                    "                            </tr>"
+            }
+            for (i = 0; i < (rawData.three_D0_list.length > 3 ? 3 : rawData.three_D0_list.length); i++) {
+                html += "                       <tr>\n" +
+                    "                                <td>2</td>\n" +
+                    "                                <td>D2,D1=" + rawData.D2 + "," + rawData.D1 + "</td>\n" +
+                    "                                <td style=\"border-left: #cd5e63 2px solid;border-right: #cd5e63 2px solid;\">D0=" + rawData.three_D0_list[i] + "</td>\n" +
+                    "                                <td>" + rawData.three_approval_rating + "</td>\n" +
+                    "                                <td>" + rawData.three_proportion_list[i] * 100 + "%</td>\n" +
+                    "                                <td>" + rawData.three_appearance_count_list[i] + "/" + rawData.three_sample_count + "</td>\n" +
+                    "                            </tr>"
+            }
+            for (i = 0; i < (rawData.two_D0_list.length > 3 ? 3 : rawData.two_D0_list.length); i++) {
+                if (i == (rawData.two_D0_list.length > 3 ? 3 : rawData.two_D0_list.length) - 1) {
+                    html += "                       <tr>\n" +
+                        "                                <td>1</td>\n" +
+                        "                                <td>D1=" + rawData.D1 + "</td>\n" +
+                        "                                <td style=\"border-left: #cd5e63 2px solid;border-right: #cd5e63 2px solid;border-bottom: #cd5e63 2px solid;\">D0=" + rawData.two_D0_list[i] + "</td>\n" +
+                        "                                <td>" + rawData.two_approval_rating + "</td>\n" +
+                        "                                <td>" + rawData.two_proportion_list[i] * 100 + "%</td>\n" +
+                        "                                <td>" + rawData.two_appearance_count_list[i] + "/" + rawData.two_sample_count + "</td>\n" +
+                        "                            </tr>"
+                } else {
+                    html += "                       <tr>\n" +
+                        "                                <td>1</td>\n" +
+                        "                                <td>D1=" + rawData.D1 + "</td>\n" +
+                        "                                <td style=\"border-left: #cd5e63 2px solid;border-right: #cd5e63 2px solid;\">D0=" + rawData.two_D0_list[i] + "</td>\n" +
+                        "                                <td>" + rawData.two_approval_rating + "</td>\n" +
+                        "                                <td>" + rawData.two_proportion_list[i] * 100 + "%</td>\n" +
+                        "                                <td>" + rawData.two_appearance_count_list[i] + "/" + rawData.two_sample_count + "</td>\n" +
+                        "                            </tr>"
+                }
+            }
+            $("#fluctuation_correlation_table").html(html)
+
+
+        }
+
+        function show_fluctuation_sequencing(rawData) {
+            var html = "<table class=\"table\">\n" +
+                "                            <thead>\n" +
+                "                            <tr>\n" +
+                "                                <th>收盘价</th>\n" +
+                "                                <th>相对高点跌幅</th>\n" +
+                "                                <th>跌幅排序<br>(从大到小)</th>\n" +
+                "                                <th>相对低点涨幅</th>\n" +
+                "                                <th>涨幅排序<br>(从小到大)</th>\n" +
+                "                                <th>排序和</th>\n" +
+                "                            </tr>\n" +
+                "                            </thead>\n" +
+                "                            <tbody>\n" +
+                "                            <tr>\n" +
+                "                                <td>" + rawData.sequencing_data.close + "</td>\n" +
+                "                                <td>" + rawData.sequencing_data.high_change * 100 + "%</td>\n" +
+                "                                <td>" + rawData.sequencing_data.high_order + "</td>\n" +
+                "                                <td>" + rawData.sequencing_data.low_change * 100 + "%</td>\n" +
+                "                                <td>" + rawData.sequencing_data.low_order + "</td>\n" +
+                "                                <td>" + rawData.sequencing_data.order_sum + "</td>\n" +
+                "                            </tr>\n" +
+                "                            </tbody>\n" +
+                "                        </table>"
+            $("#fluctuation_sequencing_table").html(html)
+            var myChart = echarts.init(document.getElementById('fluctuation_sequencing_chart'));
+            var category_data = [];
+            for (i = -100; i <= 0; i++) {
+                category_data.push(i)
+            }
+            var chart_option = {
+                title: {
+                    text: "相对高点跌幅统计图({{ "%s/%s/%s"|format(date[0:4],date[4:6],date[6:8]) }})"
+                },
+                xAxis: {
+                    type: 'category',
+                    splitLine: {show: false},
+                    data: category_data
+                },
+                yAxis: {
+                    type: 'value'
+                },
+                series: [{
+                    name: '频数',
+                    type: "bar",
+                    itemStyle: {
+                        normal: {
+                            color: '#00B597'
+                        }
+                    },
+                    data: rawData.high_change_statistics
+
+
+                }]
+            }
+            myChart.setOption(chart_option)
+        }
+
+        function show_similarity_fluctuation(data) {
+            var html = "<table class=\"table table-hover\" style=\"table-layout: fixed; text-align: center;\">\n" +
+                "                        <thead>\n" +
+                "                        <tr>\n" +
+                "                            <th style=\"width: 50px;\">#</th>\n" +
+                "                            <th style=\"width: 120px;\">股票名称</th>\n" +
+                "                            <th style=\"width: 120px;\">活跃度</th>\n" +
+                "                            <th>近120天同步大涨大跌情况</th>\n" +
+                "                        </tr>\n" +
+                "                        </thead>\n" +
+                "                        <tbody>\n" +
+                "                        <tr class=\"active\">\n" +
+                "                            <td>●</td>\n" +
+                "                            <td>{{ stock.name }}<br/>({{ stock.symbol }})</td>\n" +
+                "                            <td>"+data.cur_stock_liveness*100+"%</td>\n" +
+                "                            <td><span class=\"sparktristate_first\">"+data.cur_stock_pct_chg+"</span>\n" +
+                "                            </td>\n" +
+                "                        </tr>"
+            for (i = 0; i < data.stock.length; i++) {
+                html += "<tr>\n" +
+                    "                            <td>" + (i + 1) + "</td>\n" +
+                    "                            <td><a>" + data.stock[i].name + "<br/>(" + data.stock[i].symbol + ")</a>\n" +
+                    "                            </td>\n" +
+                    "                            <td>" + data.liveness[i]*100 + "%</td>\n" +
+                    "                            <td><span class=\"sparktristate\">" + data.pct_chg[i] + "</span>\n" +
+                    "                            </td>\n" +
+                    "                        </tr>"
+            }
+            html += "</tbody></table>"
+            $("#similarity_fluctuation").html(html)
+            $(".sparktristate_first").sparkline('html', {
+                type: "tristate",
+                width: "100%",
+                height: "50",
+                barWidth: 3,
+                barSpacing: 1,
+                posBarColor: '#cd5e63',
+                negBarColor: '#1ab394',
+                zeroAxis: true,
+                tooltipFormat: '\{\{value:levels\}\}',
+                tooltipValueLookups: {
+                    levels: $.range_map({'-1': '<-2%', '0': '[-2%,2%]', '1': '>2%'})
+                }
+            });
+            $(".sparktristate").sparkline('html', {
+                type: "tristate",
+                width: "100%",
+                height: "50",
+                barWidth: 3,
+                barSpacing: 1,
+                posBarColor: '#cd5e63',
+                negBarColor: '#1ab394',
+                zeroAxis: true,
+                tooltipFormat: '\{\{value:levels\}\}',
+                tooltipValueLookups: {
+                    levels: $.range_map({'-1': '<-2%', '0': '[-2%,2%]', '1': '>2%'})
+                }
+            });
+        }
+
+        function show_similarity_trend(data) {
+            var html = "<table class=\"table table-hover\" style=\"table-layout: fixed; text-align: center;\">\n" +
+                "                            <thead>\n" +
+                "                            <tr>\n" +
+                "                                <th style=\"width: 50px;\">#</th>\n" +
+                "                                <th style=\"width: 120px;\">股票名称</th>\n" +
+                "                                <th style=\"width: 120px;\">活跃度</th>\n" +
+                "                                <th>2015年以来走势</th>\n" +
+                "                            </tr>\n" +
+                "                            </thead>\n" +
+                "                            <tbody>\n" +
+                "                            <tr class=\"active\">\n" +
+                "                                <td>●</td>\n" +
+                "                                <td>{{ stock.name }}<br/>({{ stock.symbol }})</td>\n" +
+                "                                <td>"+data.cur_stock_liveness*100+"%</td>\n" +
+                "                                <td><span class=\"sparkslim_first\">"+data.cur_stock_close+"</span>\n" +
+                "                                </td>\n" +
+                "                            </tr>"
+            for (i = 0; i < data.stock.length; i++) {
+                html += "<tr>\n" +
+                    "                            <td>" + (i + 1) + "</td>\n" +
+                    "                            <td><a>" + data.stock[i].name + "<br/>(" + data.stock[i].symbol + ")</a>\n" +
+                    "                            </td>\n" +
+                    "                            <td>" + data.liveness[i]*100 + "%</td>\n" +
+                    "                            <td><span class=\"sparkslim\">" + data.close[i] + "</span>\n" +
+                    "                            </td>\n" +
+                    "                        </tr>"
+            }
+            html += "</tbody></table>"
+            $("#similarity_trend").html(html)
+            $(".sparkslim_first").sparkline('html', {
+                type: "line",
+                width: "100%",
+                height: "50",
+                lineWidth: 2,
+                lineColor: "#5eafcd",
+                fillColor: "#ffc",
+                spotRadius: 3
+            });
+            $(".sparkslim").sparkline('html', {
+                type: "line",
+                width: "100%",
+                height: "50",
+                spotRadius: 3,
+                lineColor: "#adadad",
+                fillColor: "#ffffff"
+            });
+        }
+    </script>
+{% endblock %}

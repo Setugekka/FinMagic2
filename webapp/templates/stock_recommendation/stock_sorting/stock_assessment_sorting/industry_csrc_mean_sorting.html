@@ -1,0 +1,129 @@
+{% extends "stock_recommendation/stock_sorting/stock_sorting_base.html" %}
+{% block pagetitle %}
+    <div class="page-title-alt-bg"></div>
+    <div class="page-title-box">
+        <ol class="breadcrumb float-right">
+            <li class="breadcrumb-item"><a href="javascript:void(0);">个股排序</a></li>
+            <li class="breadcrumb-item"><a href="javascript:void(0);">股票估值排序</a></li>
+            <li class="breadcrumb-item active">基于行业均值的股票估值排序</li>
+        </ol>
+        <h4 class="page-title">基于行业均值的股票估值排序</h4>
+        <div class="pb-1">根据股票滚动市盈率与行业均值的偏离程度排序。</div>
+    </div>
+{% endblock %}
+{% block page_nav %}
+    <div class="row" id="trend_prediction_sorting_navigation">
+        <a href="{{ url_for('stock_recommendation.similarity_eps_sorting') }}" class="ml-1 mr-1 btn btn-secondary" style="color: white;font-size: 18px;font-weight: bold">基于相似收益</a>
+        <a href="{{ url_for('stock_recommendation.industry_mean_sorting') }}" class="ml-1 mr-1 btn btn-primary" style="color: white;font-size: 18px;font-weight: bold">基于行业均值</a>
+        <a href="{{ url_for('stock_recommendation.industry_pe_sorting') }}" class="ml-1 mr-1 btn btn-secondary" style="color: white;font-size: 18px;font-weight: bold">各行业平均PE及前3</a>
+    </div>
+{% endblock %}
+{% block page_container %}
+    <div class="row">
+        <div class="col-2 pl-5">
+            <div class="row">
+                <div class="nav flex-column nav-pills nav-pills-tab" id="v-pills-tab" role="tablist"
+                     aria-orientation="vertical">
+                    {% for day in date_list %}
+                        {% if day==date %}
+                            <a class="nav-link active mb-2"
+                               href="{{ url_for('stock_recommendation.industry_mean_sorting',mode=0,date=day) }}">
+                                {{ "%s/%s/%s"|format(day[0:4],day[4:6],day[6:8]) }}
+                            </a>
+                        {% else %}
+                            <a class="nav-link mb-2"
+                               href="{{ url_for('stock_recommendation.industry_mean_sorting',mode=0,date=day) }}">
+                                {{ "%s/%s/%s"|format(day[0:4],day[4:6],day[6:8]) }}
+                            </a>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+            </div> <!-- end row-->
+        </div>
+        <div class="col-10">
+            <div class="text-right">
+                <a href="{{ url_for('stock_recommendation.industry_mean_sorting',mode=0,date=date) }}"
+                   class="btn btn-info" style="color: white">基于证监会行业均值</a>
+                <a href="{{ url_for('stock_recommendation.industry_mean_sorting',mode=1,date=date) }}" class="btn"
+                   style="color: black;background-color: #DDDDDD">基于申万行业均值</a>
+            </div>
+            <div class="row" id="table"></div>
+            <div class="row">
+                <p>- PE偏离度表示个股估值偏离行业水平的程度。<br/>- PE偏离度=(PE-AvgPE)/PE，其中：PE为个股的滚动市盈率，AvgPE为个股所在行业的PE均值。<br/>-
+            PE偏离度的值小于0时，值越小代表该个股越被低估；当值大于0，则表示该个股被高估了。<br/>- 输出列表同时满足条件：(1) 个股PE估值持续了一段时间；(2)处于买点状态；(3)换手率大于1%<br/></p>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+{% block scripts %}
+    <script src="{{ url_for('static',filename='libs/sparkline/jquery.sparkline.min.js') }}"></script>
+    <script>
+        var date = "{{ date }}"
+    </script>
+    <script>
+        $.ajax({
+            type: "GET",
+            url: "{{ url_for('stock_recommendation.api_industry_csrc_mean_sorting') }}",
+            data: {date: '20181101'},
+            dataType: "json",
+            success: function (r) {
+                show_table(r)
+            }
+        });
+        function show_table(data) {
+            var html="<table class=\"table table-hover fullwidth\" style=\"table-layout: fixed; text-align: center;\">\n" +
+                "                <thead>\n" +
+                "                <tr>\n" +
+                "                    <th style=\"width: 50px;\">#</th>\n" +
+                "                    <th style=\"width: 100px;\">股票名称</th>\n" +
+                "                    <th style=\"width: 110px;\">滚动市盈率</th>\n" +
+                "                    <th style=\"width: 150px;\">所处行业</th>\n" +
+                "                    <th style=\"width: 110px;\">行业PE均值</th>\n" +
+                "                    <th style=\"border-left:#cd5e63 2px solid;border-right:#cd5e63 2px solid;border-top:#cd5e63 2px solid;width:100px\">PE偏离度\n" +
+                "                    <th style=\"width: 80px;\">换手率</th>\n" +
+                "                    <th>近30天走势及高低点</th>\n" +
+                "                </tr>\n" +
+                "                </thead>\n" +
+                "                <tbody>"
+            for(var i=0;i<data.length;i++){
+                if(i!=data.length-1){
+                    html+="<tr>\n" +
+                    "                    <td style=\"vertical-align: middle;\">"+(i+1)+"</td>\n" +
+                    "                    <td style=\"vertical-align: middle;\"><a target=\"_blank\">"+data[i].name+"<br/>("+data[i].symbol+")</a></td>\n" +
+                    "                    <td style=\"vertical-align: middle;\">"+data[i].pe_ttm+"</td>\n" +
+                    "                    <td style=\"vertical-align: middle;\">"+data[i].industry+"</td>\n" +
+                    "                    <td style=\"vertical-align: middle;\">"+data[i].industry_pe_mean+"</td>\n" +
+                    "                    <td style=\"border-left:#cd5e63 2px solid;border-right:#cd5e63 2px solid;vertical-align: middle;\">"+data[i].scale.toFixed(2)+"</td>\n" +
+                    "                    <td style=\"vertical-align: middle;\">"+data[i].turnover_rate+"%</td>\n" +
+                    "                    <td><span class=\"sparkslim\">"+data[i].stock_bar+"</span>\n" +
+                    "                    </td>\n" +
+                    "                </tr>"
+                }else {
+                    html+="<tr>\n" +
+                    "                    <td style=\"vertical-align: middle;\">"+(i+1)+"</td>\n" +
+                    "                    <td style=\"vertical-align: middle;\"><a target=\"_blank\">"+data[i].name+"<br/>("+data[i].symbol+")</a></td>\n" +
+                    "                    <td style=\"vertical-align: middle;\">"+data[i].pe_ttm+"</td>\n" +
+                    "                    <td style=\"vertical-align: middle;\">"+data[i].industry+"</td>\n" +
+                    "                    <td style=\"vertical-align: middle;\">"+data[i].industry_pe_mean+"</td>\n" +
+                    "                    <td style=\"border-left:#cd5e63 2px solid;border-right:#cd5e63 2px solid;border-bottom:#cd5e63 2px solid;vertical-align: middle;\">"+data[i].scale.toFixed(2)+"</td>\n" +
+                    "                    <td style=\"vertical-align: middle;\">"+data[i].turnover_rate+"%</td>\n" +
+                    "                    <td><span class=\"sparkslim\">"+data[i].stock_bar+"</span>\n" +
+                    "                    </td>\n" +
+                    "                </tr>"
+                }
+            }
+            html+="</tbody></table>"
+            $("#table").html(html)
+            $(".sparkslim").sparkline('html', {
+                type: "line",
+                width: "100%",
+                height: "40",
+                spotColor: false,
+                spotRadius: 3,
+                lineColor: "#adadad",
+                fillColor: "#f4fce1"
+            });
+        }
+    </script>
+
+{% endblock %}

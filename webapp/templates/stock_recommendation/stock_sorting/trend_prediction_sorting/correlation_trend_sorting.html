@@ -1,0 +1,115 @@
+{% extends "stock_recommendation/stock_sorting/trend_prediction_sorting/trend_prediction_sorting_base.html" %}
+
+{% block pagetitle %}
+    <div class="page-title-alt-bg"></div>
+    <div class="page-title-box">
+        <ol class="breadcrumb float-right">
+            <li class="breadcrumb-item"><a href="javascript:void(0);">个股排序</a></li>
+            <li class="breadcrumb-item"><a href="javascript:void(0);">走势预测排序</a></li>
+            <li class="breadcrumb-item active">相关走势排序</li>
+        </ol>
+        <h4 class="page-title">相关走势排序</h4>
+        <div class="pb-1">根据每只股票近期走势与所有股票历史数据的相关性系数进行排序。</div>
+    </div>
+{% endblock %}
+
+{% block page_container %}
+    <div class="row">
+        <div class="col-2 pl-5">
+            <div class="row">
+                <div class="nav flex-column nav-pills nav-pills-tab" id="v-pills-tab" role="tablist"
+                     aria-orientation="vertical">
+                    {% for day in date_list %}
+                        {% if day==date %}
+                            <a class="nav-link active mb-2"
+                               href="{{ url_for('stock_recommendation.correlation_trend_sorting',date=day) }}">
+                                {{ "%s/%s/%s"|format(day[0:4],day[4:6],day[6:8]) }}
+                            </a>
+                        {% else %}
+                            <a class="nav-link mb-2"
+                               href="{{ url_for('stock_recommendation.correlation_trend_sorting',date=day) }}">
+                                {{ "%s/%s/%s"|format(day[0:4],day[4:6],day[6:8]) }}
+                            </a>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+            </div> <!-- end row-->
+        </div>
+        <div class="col-10">
+            <div class="row" id="table">
+            </div>
+            <div class="row">
+                <p>- 将股票与相关股票在相关日期之前的一段走势的相关性按从大到小排序。<br/>- <span style="color: #FF0000">红色线</span>代表源股票近20天的走势，<span
+                style="color: #5eafcd">蓝色线</span>代表相关股票在相关日期前后各20天的走势。<br/>- 相关股票相关日期后的走势可以作为该股票未来走势的一种参考。<br/>-
+            正相关走势可直接参考，负相关走势则需要反过来看待。<br/></p>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+{% block page_scripts %}
+    <script src="{{ url_for('static',filename='libs/sparkline/jquery.sparkline.min.js') }}"></script>
+    <script>
+        $.ajax({
+            type: "GET",
+            url: "{{ url_for('stock_recommendation.api_correlation_trend_sorting') }}",
+            data: {date: '20181101'},
+            dataType: "json",
+            success: function (r) {
+                show_table(r)
+            }
+        });
+        function show_table(data) {
+            var html="<table class=\"table table-hover fullwidth\" style=\"table-layout: fixed; text-align: center;\">\n" +
+                "                <thead>\n" +
+                "                <tr>\n" +
+                "                    <th style=\"width: 50px;\">#</th>\n" +
+                "                    <th style=\"width: 100px;\">股票名称</th>\n" +
+                "                    <th style=\"width: 100px;\">相关股票</th>\n" +
+                "                    <th style=\"width:100px;\">相关日期</th>\n" +
+                "                    <th>相关情况</th>\n" +
+                "                    <th style=\"width: 80px;\">相关度</th>\n" +
+                "                    <th style=\"width: 80px;\">换手率</th>\n" +
+                "                </tr>\n" +
+                "                </thead>\n" +
+                "                <tbody>"
+            var script=""
+            for(var i=0;i<data.length;i++){
+                html+="<tr>\n" +
+                    "                    <td style=\"vertical-align: middle;\">"+(i+1)+"</td>\n" +
+                    "                    <td style=\"color:#ff0000;vertical-align: middle;\"><a target=\"_blank\">"+data[i].name+"<br/>("+data[i].symbol+")</a>\n" +
+                    "                    </td>\n" +
+                    "                    <td style=\"color:#3fa3c9;vertical-align: middle;\">"+data[i].correlation_name+"<br/>("+data[i].correlation_symbol+")</td>\n" +
+                    "                    <td style=\"vertical-align: middle;\">"+data[i].match_date+"</td>\n" +
+                    "                    <td><span id=\"sparkslim_"+i+"\"></span></td>\n" +
+                    "                    <td style=\"color:"+(data[i].r<0?palette.font_down_color:palette.font_up_color)+"\">"+(data[i].r<0?"负相关":"正相关")+"<br/>("+data[i].r+")</td>\n"+
+                    "                    <td style=\"vertical-align: middle;\">"+data[i].turnover_rate+"%</td>\n" +
+                    "                </tr>"
+                script+="            $(\"#sparkslim_"+i+"\").sparkline(["+data[i].correlation_bar+"], {\n" +
+                    "                type: 'line',\n" +
+                    "                width: '100%',\n" +
+                    "                height: '40',\n" +
+                    "                spotColor: false,\n" +
+                    "                minSpotColor: false,\n" +
+                    "                maxSpotColor: false,\n" +
+                    "                lineColor: '#5eafcd',\n" +
+                    "                fillColor: '#f4fce1',\n" +
+                    "                tooltipFormatFieldlist: [],\n" +
+                    "                tooltipFormatFieldlistKey: 'field'\n" +
+                    "            });\n" +
+                    "            $(\"#sparkslim_"+i+"\").sparkline(["+data[i].stock_bar+"], {\n" +
+                    "                composite: true,\n" +
+                    "                type: 'line',\n" +
+                    "                spotColor: false,\n" +
+                    "                minSpotColor: false,\n" +
+                    "                maxSpotColor: false,\n" +
+                    "                lineColor: '#ff0000',\n" +
+                    "                fillColor: false\n" +
+                    "            });"
+            }
+            html+="</tbody></table>"
+            $("#table").html(html)
+            eval(script)
+        }
+
+    </script>
+{% endblock %}

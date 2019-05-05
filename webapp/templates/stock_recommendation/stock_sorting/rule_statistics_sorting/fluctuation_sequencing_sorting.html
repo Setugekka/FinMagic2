@@ -1,0 +1,153 @@
+{% extends "stock_recommendation/stock_sorting/stock_sorting_base.html" %}
+{% block pagetitle %}
+    <div class="page-title-alt-bg"></div>
+    <div class="page-title-box">
+        <ol class="breadcrumb float-right">
+            <li class="breadcrumb-item"><a href="javascript:void(0);">个股排序</a></li>
+            <li class="breadcrumb-item"><a href="javascript:void(0);">规则统计排序</a></li>
+            <li class="breadcrumb-item active">涨跌幅排序</li>
+        </ol>
+        <h4 class="page-title">涨跌幅排序</h4>
+        <div class="pb-1">统计自2015年1月以来，对当前价格相对于高低点的涨跌幅进行排序。</div>
+    </div>
+{% endblock %}
+{% block page_nav %}
+    <div class="row" id="trend_prediction_sorting_navigation">
+        <a href="{{ url_for('stock_recommendation.associate_rule_sorting') }}" class="ml-1 mr-1 btn btn-secondary"
+           style="color: white;font-size: 18px;font-weight: bold">联动涨跌排序</a>
+        <a href="{{ url_for('stock_recommendation.fluctuation_combination_sorting') }}"
+           class="ml-1 mr-1 btn btn-secondary"
+           style="color: white;font-size: 18px;font-weight: bold">幅值组合排序</a>
+        <a href="{{ url_for('stock_recommendation.fluctuation_sequencing_sorting') }}" class="ml-1 mr-1 btn btn-primary"
+           style="color: white;font-size: 18px;font-weight: bold">涨跌幅排序</a>
+        <a href="{{ url_for('stock_recommendation.shape_matching_sorting') }}" class="ml-1 mr-1 btn btn-secondary"
+           style="color: white;font-size: 18px;font-weight: bold">走势形态匹配</a>
+    </div>
+{% endblock %}
+{% block page_container %}
+    <div class="row">
+        <div class="col-2 pl-5">
+            <div class="row">
+                <div class="nav flex-column nav-pills nav-pills-tab" id="v-pills-tab" role="tablist"
+                     aria-orientation="vertical">
+                    {% for day in date_list %}
+                        {% if day==date %}
+                            <a class="nav-link active mb-2"
+                               href="{{ url_for('stock_recommendation.fluctuation_sequencing_sorting',date=day) }}">
+                                {{ "%s/%s/%s"|format(day[0:4],day[4:6],day[6:8]) }}
+                            </a>
+                        {% else %}
+                            <a class="nav-link mb-2"
+                               href="{{ url_for('stock_recommendation.fluctuation_sequencing_sorting',date=day) }}">
+                                {{ "%s/%s/%s"|format(day[0:4],day[4:6],day[6:8]) }}
+                            </a>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+            </div> <!-- end row-->
+        </div>
+        <div class="col-10">
+            <div class="row">
+                <div style="width: 100%;height: 500px" id="chart"></div>
+            </div>
+            <div class="row" id="table"></div>
+            <div class="row">
+                <p>- 当前收盘价，相对于高点的跌幅从大到小排序，相对低点的涨幅从小到大排序；<br/>- 排序和越小，说明该股票目前跌得很多，涨得很少。<br/></p>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+{% block scripts %}
+    <script src="{{ url_for('static',filename='libs/sparkline/jquery.sparkline.min.js') }}"></script>
+    <script src="{{ url_for('static',filename='libs/echarts/echarts.js') }}"></script>
+    <script>
+        var date = "{{ date }}"
+    </script>
+    <script>
+        $.ajax({
+            type: "GET",
+            url: "{{ url_for('stock_recommendation.api_fluctuation_sequencing_sorting') }}",
+            data: {date: '20181101'},
+            dataType: "json",
+            success: function (r) {
+                draw_chart(r.chart)
+                show_table(r.table)
+            }
+        });
+
+        function draw_chart(rawData) {
+            var myChart = echarts.init(document.getElementById('chart'));
+            var category_data = [];
+            for (i = -100; i <= 0; i++) {
+                category_data.push(i)
+            }
+            var chart_option = {
+                title: {
+                    text: "相对高点跌幅统计图({{ "%s/%s/%s"|format(date[0:4],date[4:6],date[6:8]) }})"
+                },
+                xAxis: {
+                    type: 'category',
+                    splitLine: {show: false},
+                    data: category_data
+                },
+                yAxis: {
+                    type: 'value'
+                },
+                series: [{
+                    name: '频数',
+                    type: "bar",
+                    itemStyle: {
+                        normal: {
+                            color: '#00B597'
+                        }
+                    },
+                    data: rawData
+                }]
+            }
+            myChart.setOption(chart_option)
+        }
+
+        function show_table(data) {
+            var html = "<table class=\"table fullwidth\" style=\"text-align: center;\">\n" +
+                "                <thead>\n" +
+                "                <tr>\n" +
+                "                    <th>股票名称</th>\n" +
+                "                    <th>收盘价</th>\n" +
+                "                    <th style=\"border-left:#cd5e63 2px solid;border-right:#cd5e63 2px solid;border-top:#cd5e63 2px solid;\">相对高点跌幅</th>\n" +
+                "                    <th>跌幅排序<br/>(从大到小)</th>\n" +
+                "                    <th style=\"border-left:#cd5e63 2px solid;border-right:#cd5e63 2px solid;border-top:#cd5e63 2px solid;\">相对低点涨幅</th>\n" +
+                "                    <th>涨幅排序<br/>(从小到大)</th>\n" +
+                "                    <th>排序和</th>\n" +
+                "                </tr>\n" +
+                "                </thead>\n" +
+                "                <tbody>"
+            for (var i = 0; i < data.length; i++) {
+                if (i != data.length - 1) {
+                    html += "<tr>\n" +
+                        "                    <td><a target=\"_blank\"\n" +
+                        "                           >" + data[i].name + "(" + data[i].symbol + ")</a></td>\n" +
+                        "                    <td>" + data[i].close + "</td>\n" +
+                        "                    <td style=\"border-left:#cd5e63 2px solid;border-right:#cd5e63 2px solid;\">" + (data[i].high_change * 100).toFixed(2) + "%</td>\n" +
+                        "                    <td>" + data[i].high_order + "</td>\n" +
+                        "                    <td style=\"border-left:#cd5e63 2px solid;border-right:#cd5e63 2px solid;\">" + (data[i].low_change * 100).toFixed(2) + "%</td>\n" +
+                        "                    <td>" + data[i].low_order + "</td>\n" +
+                        "                    <td>" + data[i].order_sum + "</td>\n" +
+                        "                </tr>"
+                } else {
+                    html += "<tr>\n" +
+                        "                    <td><a target=\"_blank\"\n" +
+                        "                           >" + data[i].name + "(" + data[i].symbol + ")</a></td>\n" +
+                        "                    <td>" + data[i].close + "</td>\n" +
+                        "                    <td style=\"border-left:#cd5e63 2px solid;border-right:#cd5e63 2px solid;border-bottom:#cd5e63 2px solid;\">" + (data[i].high_change * 100).toFixed(2) + "%</td>\n" +
+                        "                    <td>" + data[i].high_order + "</td>\n" +
+                        "                    <td style=\"border-left:#cd5e63 2px solid;border-right:#cd5e63 2px solid;border-bottom:#cd5e63 2px solid;\">" + (data[i].low_change * 100).toFixed(2) + "%</td>\n" +
+                        "                    <td>" + data[i].low_order + "</td>\n" +
+                        "                    <td>" + data[i].order_sum + "</td>\n" +
+                        "                </tr>"
+                }
+            }
+            html += "</tbody></table>"
+            $("#table").html(html)
+        }
+    </script>
+{% endblock %}

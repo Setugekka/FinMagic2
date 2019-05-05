@@ -1,0 +1,18 @@
+{% extends "stock_recommendation/stock_sorting/stock_sorting_base.html" %}
+{% block page_nav %}
+    <div class="row" id="trend_prediction_sorting_navigation">
+        <a href="{{ url_for('stock_recommendation.trading_point_sorting') }}" class="ml-1 mr-1 btn btn-secondary" style="color: white;font-size: 18px;font-weight: bold">买点统计排序</a>
+        <a href="{{ url_for('stock_recommendation.similarity_trend_sorting') }}" class="ml-1 mr-1 btn btn-secondary" style="color: white;font-size: 18px;font-weight: bold">相似走势排序</a>
+        <a href="{{ url_for('stock_recommendation.correlation_trend_sorting') }}" class="ml-1 mr-1 btn btn-secondary" style="color: white;font-size: 18px;font-weight: bold">相关走势排序</a>
+        <a href="{{ url_for('stock_recommendation.history_reappear_sorting') }}" class="ml-1 mr-1 btn btn-secondary" style="color: white;font-size: 18px;font-weight: bold">自身重现排序</a>
+        <a href="{{ url_for('stock_recommendation.long_term_trend_sorting') }}" class="ml-1 mr-1 btn btn-secondary" style="color: white;font-size: 18px;font-weight: bold">长期趋势排序</a>
+    </div>
+{% endblock %}
+{% block scripts %}
+    <script src="{{ url_for('static',filename='assets/js/stock_recommendation/stock_sorting/trend_prediction_sorting/jquery.trend_prediction_sorting_base.js') }}"></script>
+    <script>
+        var date = "{{ date }}"
+    </script>
+    {% block page_scripts %}
+    {% endblock %}
+{% endblock %}

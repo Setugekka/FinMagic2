@@ -1,0 +1,688 @@
+{% extends "stock_prediction/stock_prediction_base.html" %}
+{% block page_container %}
+    <div class="row">
+        <div class="col-2 pl-5">
+            <div class="row">
+                <div class="nav flex-column nav-pills nav-pills-tab" id="v-pills-tab" role="tablist"
+                     aria-orientation="vertical">
+                    {% for day in date_list %}
+                        {% if day==date %}
+                            <a class="nav-link active mb-2"
+                               href="{{ url_for('stock_prediction.comprehensive_analysis',code=stock.ts_code,date=day) }}">
+                                {{ "%s/%s/%s"|format(day[0:4],day[4:6],day[6:8]) }}
+                            </a>
+                        {% else %}
+                            <a class="nav-link mb-2"
+                               href="{{ url_for('stock_prediction.comprehensive_analysis',code=stock.ts_code,date=day) }}">
+                                {{ "%s/%s/%s"|format(day[0:4],day[4:6],day[6:8]) }}
+                            </a>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+            </div> <!-- end row-->
+        </div>
+        <div class="col-10">
+            <div class="card">
+                <div class="card-header" style="font-size: 20px;font-weight: bold">
+                    估值详情({{ "%s/%s/%s"|format(date[0:4],date[4:6],date[6:8]) }})
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-2 text-center" style="font-size: 30px;font-weight:bold;color:#00A2C7">
+                            <p>{{ stock.name }}<br/>{{ stock.symbol }}</p>
+                        </div>
+                        <div class="col-10" id="today_data">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header" style="font-size: 20px;font-weight: bold">
+                    基于自身历史相似收益水平的估值
+                    <button class="btn btn-info">排序</button>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div style="width: 100%;height: 500px" id="assessment_chart"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header" style="font-size: 20px;font-weight: bold">
+                    基于所处行业平均市盈率的估值
+                    <button class="btn btn-info">排序1</button>
+                    <button class="btn btn-info">排序2</button>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div style="width: 100%;height: 500px" id="industry_compare"></div>
+                    </div>
+                    <div class="row" style="font-size: 18px;font-weight: bold">表.平安银行的PE在行业中的位置(值越小越好)</div>
+                    <div class="row">
+                        <div class="col-6">
+                            <p>表1. 基于证监会行业分类的比较</p>
+                            <button class="btn btn-info">综合排序</button>
+                            <button class="btn btn-info">分行业排序</button>
+                            <div id="csrc_order"></div>
+                        </div>
+                        <div class="col-6">
+                            <p>表2. 基于申万行业分类的比较</p>
+                            <button class="btn btn-info">综合排序</button>
+                            <button class="btn btn-info">分行业排序</button>
+                            <div id="sw_order"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+{% endblock %}
+
+{% block page_scripts %}
+    <script src="{{ url_for('static',filename='libs/echarts/echarts.js') }}"></script>
+    <script>
+        $.ajax({
+            type: "GET",
+            url: "{{ url_for('stock_prediction.api_stock_assessment') }}",
+            data: {code: stock, date: date},
+            dataType: "json",
+            success: function (r) {
+                show_today_data(r.today_data)
+                draw_assessment_chart(r.assessment_data)
+                draw_industry_compare_chart(r.industry_compare_data)
+                show_order_table(r.today_data,r.order_data)
+            }
+        });
+
+        function show_today_data(data) {
+            var font_color = palette.font_up_color
+            var font_color_2 = palette.font_up_color
+            var html = "<table style=\"width: 100%;font-size: 16px\">\n" +
+                "                                <tbody>\n" +
+                "                                <tr>\n" +
+                "                                    <td></td>\n" +
+                "                                    <td></td>\n" +
+                "                                    <td style=\"padding-left: 10px;color: " + palette.font_middle_color + "\">（历史相似收益条件下）</td>\n" +
+                "                                </tr>\n" +
+                "                                <tr>\n" +
+                "                                    <td style=\"border-right: 2px solid #f4f4f4; width: 33.3%;padding-left:10px;line-height:30px;\">\n" +
+                "                                        收盘价：<span style=\"color: " + font_color + "\">" + data.close + "</span> <br>滚动市盈率PE：<span\n" +
+                "                                            style=\"color: " + font_color + "\">" + data.pe_ttm + "</span>\n" +
+                "                                        <br>证监会行业平均PE：<span style=\"color: " + font_color + "\">" + data.csrc_pe + "</span> <br>申万行业平均PE：<span\n" +
+                "                                            style=\"color: " + font_color + "\">" + data.sw_pe + "</span>\n" +
+                "                                        <br>\n" +
+                "                                    </td>\n" +
+                "                                    <td style=\"border-right: 2px solid #f4f4f4;width: 33.3%;padding-left:10px;line-height:30px;\">\n" +
+                "                                        估值价：<span style=\"color: " + font_color_2 + "\">" + data.estimated_value + "</span> <br>68%区间：<span\n" +
+                "                                            style=\"color: " + font_color_2 + "\">[" + (data.estimated_value - data.estimated_value_std) + "," + (data.estimated_value + data.estimated_value_std) + "]</span>\n" +
+                "                                        <br>95%区间：<span style=\"color: " + font_color_2 + "\">[" + (data.estimated_value - 2 * data.estimated_value_std) + "," + (data.estimated_value + 2 * data.estimated_value_std) + "]</span> <br>99%区间：<span\n" +
+                "                                            style=\"color: " + font_color_2 + "\">[" + (data.estimated_value - 3 * data.estimated_value_std) + "," + (data.estimated_value + 3 * data.estimated_value_std) + "]</span>\n" +
+                "                                        <br>\n" +
+                "                                    </td>\n" +
+                "                                    <td style=\"width: 33.3%;padding-left:10px;line-height:30px;\">\n" +
+                "                                        PE相似数：<span style=\"color: " + palette.font_middle_color + "\">" + data.similar_pe_count + "</span> <br>PE平均值：<span\n" +
+                "                                            style=\"color: " + palette.font_middle_color + "\">" + data.pe_mean + "</span>\n" +
+                "                                        <br>PE标准差：<span style=\"color: " + palette.font_middle_color + "\">" + data.pe_std + "</span> <br>PE值范围：<span\n" +
+                "                                            style=\"color: " + palette.font_middle_color + "\">[" + data.pe_min + "," + data.pe_max + "]</span>\n" +
+                "                                        <br>\n" +
+                "                                    </td>\n" +
+                "                                </tr>\n" +
+                "                                </tbody>\n" +
+                "                            </table>"
+            $("#today_data").html(html)
+        }
+
+        function draw_assessment_chart(rawData) {
+            function splitData(rawData) {
+                var categoryData = [];
+                var data_close = [];
+                var data_avg = [];
+                var data_high1 = [];
+                var data_high2 = [];
+                var data_high3 = [];
+                var data_low1 = [];
+                var data_low2 = [];
+                var data_low3 = [];
+
+                for (var i = 0; i < rawData.close.length; i++) {
+                    categoryData.push(rawData.close[i].splice(0, 1)[0]);
+                    data_close.push(rawData.close[i][0])
+                }
+                for (var i = 0; i < rawData.assessment.length; i++) {
+                    var t = rawData.assessment[i].splice(1, 1)[0];
+                    data_avg.push(rawData.assessment[i][0]);
+                    data_high1.push((rawData.assessment[i][0] + t));
+                    data_high2.push((rawData.assessment[i][0] + 2 * t));
+                    data_high3.push((rawData.assessment[i][0] + 3 * t));
+                    data_low1.push(rawData.assessment[i][0] - t);
+                    data_low2.push(rawData.assessment[i][0] - 2 * t);
+                    data_low3.push(rawData.assessment[i][0] - 3 * t);
+                }
+                return {
+                    categoryData: categoryData,
+                    data_close: data_close,
+                    data_avg: data_avg,
+                    data_high1: data_high1,
+                    data_high2: data_high2,
+                    data_high3: data_high3,
+                    data_low1: data_low1,
+                    data_low2: data_low2,
+                    data_low3: data_low3
+                };
+            }
+
+            var data = splitData(rawData)
+            var myChart = echarts.init(document.getElementById('assessment_chart'));
+            var chart_option = {
+                tooltip: {
+                    trigger: 'axis',
+                    position: function (params) {
+                        return [params[0], '10%'];
+                    }
+                },
+                title: {
+                    text: '图.{{ stock.name }}的估值区间序列图',
+                },
+                toolbox: {
+                    feature: {
+                        dataZoom: {
+                            yAxisIndex: 'none'
+                        },
+                        restore: {show: true},
+                        saveAsImage: {show: true}
+                    }
+                },
+                legend: {
+                    top: 70,
+                    height: 40,
+                    left: 'center',
+                    orient: 'vertical',
+                    data: ['股票价格', '股票估值', '68%区间上限', '68%区间下限', '95%区间上限', '95%区间下限', '99%区间上限', '99%区间下限']
+                },
+                grid: {
+                    top: 140,
+                    left: 32,
+                    right: 32
+                },
+                xAxis: {
+                    type: 'category',
+                    boundaryGap: false,
+                    data: data.categoryData
+                },
+                yAxis: [
+                    {
+                        name: '',
+                        type: 'value',
+                        splitLine: {
+                            show: false
+                        },
+                        boundaryGap: [0, '20%']
+                    }
+                ],
+                dataZoom: [{
+                    type: 'inside',
+                    start: 0,
+                    end: 100
+                }, {
+                    start: 0,
+                    end: 100,
+                    handleIcon: 'M10.7,11.9v-1.3H9.3v1.3c-4.9,0.3-8.8,4.4-8.8,9.4c0,5,3.9,9.1,8.8,9.4v1.3h1.3v-1.3c4.9-0.3,8.8-4.4,8.8-9.4C19.5,16.3,15.6,12.2,10.7,11.9z M13.3,24.4H6.7V23h6.6V24.4z M13.3,19.6H6.7v-1.4h6.6V19.6z',
+                    handleSize: '80%',
+                    handleStyle: {
+                        color: '#fff',
+                        shadowBlur: 3,
+                        shadowColor: 'rgba(0, 0, 0, 0.6)',
+                        shadowOffsetX: 2,
+                        shadowOffsetY: 2
+                    }
+                }],
+                series: [
+                    {
+                        name: '股票价格',
+                        type: 'line',
+                        smooth: true,
+                        symbol: 'none',
+                        sampling: 'average',
+                        itemStyle: {
+                            normal: {
+                                color: '#cc3333'
+                            }
+                        },
+                        lineStyle: {
+                            normal: {
+                                width: 3
+                            }
+                        },
+                        areaStyle: {
+                            normal: {
+                                color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{
+                                    offset: 0,
+                                    color: '#FFCCCC'
+                                }, {
+                                    offset: 1,
+                                    color: '#ffffff'
+                                }])
+                            }
+                        },
+                        markPoint: {
+                            data: [
+                                {type: 'max', name: '最大值'},
+                                {type: 'min', name: '最小值'}
+                            ]
+                        },
+                        data: data.data_close
+                    },
+                    {
+                        name: '股票估值',
+                        type: 'line',
+                        smooth: true,
+                        symbol: 'none',
+                        sampling: 'average',
+                        itemStyle: {
+                            normal: {
+                                color: '#003300'
+                            }
+                        },
+                        data: data.data_avg
+                    },
+                    {
+                        name: '68%区间上限',
+                        type: 'line',
+                        smooth: true,
+                        symbol: 'none',
+                        sampling: 'average',
+                        itemStyle: {
+                            normal: {
+                                color: '#1ab394'
+                            }
+                        },
+                        lineStyle: {
+                            normal: {
+                                color: '#1ab394',
+                                type: 'dashed',
+                                width: 3
+                            }
+                        },
+                        data: data.data_high1
+                    },
+                    {
+                        name: '68%区间下限',
+                        type: 'line',
+                        smooth: true,
+                        symbol: 'none',
+                        sampling: 'average',
+                        itemStyle: {
+                            normal: {
+                                color: '#1ab394'
+                            }
+                        },
+                        lineStyle: {
+                            normal: {
+                                color: '#1ab394',
+                                type: 'dashed',
+                                width: 3
+                            }
+                        },
+                        data: data.data_low1
+                    },
+                    {
+                        name: '95%区间上限',
+                        type: 'line',
+                        smooth: true,
+                        symbol: 'none',
+                        sampling: 'average',
+                        itemStyle: {
+                            normal: {
+                                color: '#3399CC'
+                            }
+                        },
+                        lineStyle: {
+                            normal: {
+                                color: '#3399CC',
+                                type: 'dashed',
+                                width: 2
+                            }
+                        },
+
+                        data: data.data_high2
+                    },
+                    {
+                        name: '95%区间下限',
+                        type: 'line',
+                        smooth: true,
+                        symbol: 'none',
+                        sampling: 'average',
+                        itemStyle: {
+                            normal: {
+                                color: '#3399CC'
+                            }
+                        },
+                        lineStyle: {
+                            normal: {
+                                color: '#3399CC',
+                                type: 'dashed',
+                                width: 2
+                            }
+                        },
+
+                        data: data.data_low2
+                    },
+                    {
+                        name: '99%区间上限',
+                        type: 'line',
+                        smooth: true,
+                        symbol: 'none',
+                        sampling: 'average',
+                        itemStyle: {
+                            normal: {
+                                color: '#FF9933'
+                            }
+                        },
+                        lineStyle: {
+                            normal: {
+                                color: '#FF9933',
+                                type: 'dashed',
+                                width: 1
+                            }
+                        },
+
+                        data: data.data_high3
+                    },
+                    {
+                        name: '99%区间下限',
+                        type: 'line',
+                        smooth: true,
+                        symbol: 'none',
+                        sampling: 'average',
+                        itemStyle: {
+                            normal: {
+                                color: '#FF9933'
+                            }
+                        },
+                        lineStyle: {
+                            normal: {
+                                color: '#FF9933',
+                                type: 'dashed',
+                                width: 1
+                            }
+                        },
+                        data: data.data_low3
+                    }
+                ]
+            };
+            myChart.setOption(chart_option);
+        }
+
+        function draw_industry_compare_chart(rawData) {
+            function splitData(rawData) {
+                var categoryData = [];
+                var pe = [];
+                for (var i = 0; i < rawData.pe.length; i++) {
+                    categoryData.push(rawData.pe[i].splice(0, 1)[0]);
+                    pe.push(rawData.pe[i])
+                }
+                return {
+                    categoryData: categoryData,
+                    pe: pe
+                };
+            }
+
+            var data = splitData(rawData)
+            var myChart = echarts.init(document.getElementById('industry_compare'));
+            var chart_option = {
+                tooltip: {
+                    trigger: 'axis',
+                    position: function (pt) {
+                        return [pt[0], '10%'];
+                    }
+                },
+                title: {
+                    text: '图.{{ stock.name }}的PE与行业平均PE的比较序列图',
+                },
+                toolbox: {
+                    feature: {
+                        dataZoom: {
+                            yAxisIndex: 'none'
+                        },
+                        restore: {show: true},
+                        saveAsImage: {show: true}
+                    }
+                },
+                legend: {
+                    top: 70,
+                    height: 40,
+                    left: 'center',
+                    data: ['股票PE', '证监会行业平均PE', '申万行业平均PE']
+                },
+                grid: {
+                    top: 140,
+                    left: 32,
+                    right: 32
+                },
+                xAxis: {
+                    type: 'category',
+                    boundaryGap: false,
+                    data: data.categoryData
+                },
+                yAxis: [
+                    {
+                        name: '',
+                        type: 'value',
+                        splitLine: {
+                            show: false
+                        },
+                        boundaryGap: [0, '20%']
+                    }
+                ],
+                dataZoom: [{
+                    type: 'inside',
+                    start: 0,
+                    end: 100
+                }, {
+                    start: 0,
+                    end: 100,
+                    handleIcon: 'M10.7,11.9v-1.3H9.3v1.3c-4.9,0.3-8.8,4.4-8.8,9.4c0,5,3.9,9.1,8.8,9.4v1.3h1.3v-1.3c4.9-0.3,8.8-4.4,8.8-9.4C19.5,16.3,15.6,12.2,10.7,11.9z M13.3,24.4H6.7V23h6.6V24.4z M13.3,19.6H6.7v-1.4h6.6V19.6z',
+                    handleSize: '80%',
+                    handleStyle: {
+                        color: '#fff',
+                        shadowBlur: 3,
+                        shadowColor: 'rgba(0, 0, 0, 0.6)',
+                        shadowOffsetX: 2,
+                        shadowOffsetY: 2
+                    }
+                }],
+                series: [
+                    {
+                        name: '股票PE',
+                        type: 'line',
+                        smooth: true,
+                        symbol: 'none',
+                        sampling: 'average',
+                        itemStyle: {
+                            normal: {
+                                color: '#cc3333'
+                            }
+                        },
+                        lineStyle: {
+                            normal: {
+                                color: '#cc3333',
+                                width: 1
+                            }
+                        },
+                        areaStyle: {
+                            normal: {
+                                color: '#FFFFCC'
+                            }
+                        },
+                        markPoint: {
+                            data: [
+                                {type: 'max', name: '最大值'},
+                                {type: 'min', name: '最小值'}
+                            ]
+                        },
+                        data: data.pe
+                    },
+                    {
+                        name: '证监会行业平均PE',
+                        type: 'line',
+                        smooth: true,
+                        symbol: 'none',
+                        sampling: 'average',
+                        itemStyle: {
+                            normal: {
+                                color: '#996699'
+                            }
+                        },
+                        lineStyle: {
+                            normal: {
+                                color: '#996699',
+                                type: 'dashed',
+                                width: 1
+                            }
+                        },
+                        markPoint: {
+                            data: [
+                                {type: 'max', name: '最大值'},
+                                {type: 'min', name: '最小值'}
+                            ]
+                        },
+                        data: rawData.csrc_pe
+                    },
+                    {
+                        name: '申万行业平均PE',
+                        type: 'line',
+                        smooth: true,
+                        symbol: 'none',
+                        sampling: 'average',
+                        itemStyle: {
+                            normal: {
+                                color: '#0099CC'
+                            }
+                        },
+                        lineStyle: {
+                            normal: {
+                                color: '#0099CC',
+                                type: 'dashed',
+                                width: 1
+                            }
+                        },
+                        markPoint: {
+                            data: [
+                                {type: 'max', name: '最大值'},
+                                {type: 'min', name: '最小值'}
+                            ]
+                        },
+                        data: rawData.sw_pe
+                    }
+
+
+                ]
+            };
+            myChart.setOption(chart_option);
+        }
+
+        function show_order_table(today_data, order_data) {
+            var csrc_html = "                            <table class=\"table mb-0\">\n" +
+                "                                <thead>\n" +
+                "                                <tr class=\"table-active\">\n" +
+                "                                    <th width=\"15%\">排名</th>\n" +
+                "                                    <th width=\"20%\">股票名称</th>\n" +
+                "                                    <th>滚动市盈率</th>\n" +
+                "                                </tr>\n" +
+                "                                </thead>\n" +
+                "                                <tbody>\n" +
+                "                                <tr>\n" +
+                "                                    <td>" + order_data.csrc_order + "</td>\n" +
+                "                                    <td>{{ stock.name }}<br/>({{ stock.symbol }})</td>\n" +
+                "                                    <td>\n" +
+                "                                        <div class=\"row\">\n" +
+                "                                            <div class=\"col-3 pr-0\">" + today_data.pe_ttm + "</div>\n" +
+                "                                            <div class=\"col-9 ml-0 mr-0\">\n" +
+                "                                                <div style=\"margin: auto;  position: absolute;  top: 0; left: 0; bottom: 0;height: 5px;background-color: #2EB0CE;width: 100%\"></div>\n" +
+                "                                            </div>\n" +
+                "                                        </div>\n" +
+                "                                    </td>\n" +
+                "                                </tr>\n" +
+                "                                <tr class=\"table-warning\">\n" +
+                "                                    <td colspan=\"2\" class=\"text-center\">" + order_data.csrc_industry + "<br/>(行业均值)</td>\n" +
+                "                                    <td>\n" +
+                "                                        <div class=\"row\">\n" +
+                "                                            <div class=\"col-3 pr-0\">" + today_data.csrc_pe + "</div>\n" +
+                "                                            <div class=\"col-9 ml-0 mr-0\">\n" +
+                "                                                <div style=\"margin: auto;  position: absolute;  top: 0; left: 0; bottom: 0;height: 5px;background-color: #2EB0CE;width: " + (today_data.csrc_pe / today_data.pe_ttm > 1 ? 100 : today_data.csrc_pe / today_data.pe_ttm * 100) + "%\"></div>\n" +
+                "                                            </div>\n" +
+                "                                        </div>\n" +
+                "                                    </td>\n" +
+                "                                </tr>"
+            for (var i = 0; i < order_data.csrc_order_data.length; i++) {
+                csrc_html += "<tr>\n" +
+                    "                                    <td>" + (i + 1) + "</td>\n" +
+                    "                                    <td>" + order_data.csrc_order_data[i][1] + "<br/>(" + order_data.csrc_order_data[i][0] + ")</td>\n" +
+                    "                                    <td>\n" +
+                    "                                        <div class=\"row\">\n" +
+                    "                                            <div class=\"col-3 pr-0\">" + order_data.csrc_order_data[i][2] + "</div>\n" +
+                    "                                            <div class=\"col-9 ml-0 mr-0\">\n" +
+                    "                                                <div style=\"margin: auto;  position: absolute;  top: 0; left: 0; bottom: 0;height: 5px;background-color: #2EB0CE;width: " + (order_data.csrc_order_data[i][2] / today_data.pe_ttm > 1 ? 100 : order_data.csrc_order_data[i][2] / today_data.pe_ttm * 100) + "%\"></div>\n" +
+                    "                                            </div>\n" +
+                    "                                        </div>\n" +
+                    "                                    </td>\n" +
+                    "                                </tr>"
+            }
+            csrc_html += "</tbody>"
+
+            var sw_html = "                            <table class=\"table mb-0\">\n" +
+                "                                <thead>\n" +
+                "                                <tr class=\"table-active\">\n" +
+                "                                    <th width=\"15%\">排名</th>\n" +
+                "                                    <th width=\"20%\">股票名称</th>\n" +
+                "                                    <th>滚动市盈率</th>\n" +
+                "                                </tr>\n" +
+                "                                </thead>\n" +
+                "                                <tbody>\n" +
+                "                                <tr>\n" +
+                "                                    <td>" + order_data.sw_order + "</td>\n" +
+                "                                    <td>{{ stock.name }}<br/>({{ stock.symbol }})</td>\n" +
+                "                                    <td>\n" +
+                "                                        <div class=\"row\">\n" +
+                "                                            <div class=\"col-3 pr-0\">" + today_data.pe_ttm + "</div>\n" +
+                "                                            <div class=\"col-9 ml-0 mr-0\">\n" +
+                "                                                <div style=\"margin: auto;  position: absolute;  top: 0; left: 0; bottom: 0;height: 5px;background-color: #2EB0CE;width: 100%\"></div>\n" +
+                "                                            </div>\n" +
+                "                                        </div>\n" +
+                "                                    </td>\n" +
+                "                                </tr>\n" +
+                "                                <tr class=\"table-warning\">\n" +
+                "                                    <td colspan=\"2\" class=\"text-center\">" + order_data.sw_industry + "<br/>(行业均值)</td>\n" +
+                "                                    <td>\n" +
+                "                                        <div class=\"row\">\n" +
+                "                                            <div class=\"col-3 pr-0\">" + today_data.sw_pe + "</div>\n" +
+                "                                            <div class=\"col-9 ml-0 mr-0\">\n" +
+                "                                                <div style=\"margin: auto;  position: absolute;  top: 0; left: 0; bottom: 0;height: 5px;background-color: #2EB0CE;width: " + (today_data.sw_pe / today_data.pe_ttm > 1 ? 100 : today_data.sw_pe / today_data.pe_ttm * 100) + "%\"></div>\n" +
+                "                                            </div>\n" +
+                "                                        </div>\n" +
+                "                                    </td>\n" +
+                "                                </tr>"
+            for (var i = 0; i < order_data.sw_order_data.length; i++) {
+                sw_html += "<tr>\n" +
+                    "                                    <td>" + (i + 1) + "</td>\n" +
+                    "                                    <td>" + order_data.sw_order_data[i][1] + "<br/>(" + order_data.sw_order_data[i][0] + ")</td>\n" +
+                    "                                    <td>\n" +
+                    "                                        <div class=\"row\">\n" +
+                    "                                            <div class=\"col-3 pr-0\">" + order_data.sw_order_data[i][2] + "</div>\n" +
+                    "                                            <div class=\"col-9 ml-0 mr-0\">\n" +
+                    "                                                <div style=\"margin: auto;  position: absolute;  top: 0; left: 0; bottom: 0;height: 5px;background-color: #2EB0CE;width: " + (order_data.sw_order_data[i][2] / today_data.pe_ttm > 1 ? 100 : order_data.sw_order_data[i][2] / today_data.pe_ttm * 100) + "%\"></div>\n" +
+                    "                                            </div>\n" +
+                    "                                        </div>\n" +
+                    "                                    </td>\n" +
+                    "                                </tr>"
+            }
+            sw_html += "</tbody>"
+            $("#csrc_order").html(csrc_html)
+            $("#sw_order").html(sw_html)
+        }
+
+    </script>
+{% endblock %}

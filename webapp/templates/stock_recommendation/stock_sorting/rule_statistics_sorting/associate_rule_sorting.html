@@ -1,0 +1,301 @@
+{% extends "stock_recommendation/stock_sorting/stock_sorting_base.html" %}
+{% block pagetitle %}
+    <div class="page-title-alt-bg"></div>
+    <div class="page-title-box">
+        <ol class="breadcrumb float-right">
+            <li class="breadcrumb-item"><a href="javascript:void(0);">个股排序</a></li>
+            <li class="breadcrumb-item"><a href="javascript:void(0);">规则统计排序</a></li>
+            <li class="breadcrumb-item active">联动涨跌排序</li>
+        </ol>
+        <h4 class="page-title">联动涨跌排序</h4>
+        <div class="pb-1">根据股票每天在联动涨跌规则被触发时的发生概率进行排序。</div>
+    </div>
+{% endblock %}
+{% block page_nav %}
+    <div class="row" id="trend_prediction_sorting_navigation">
+        <a href="{{ url_for('stock_recommendation.associate_rule_sorting') }}" class="ml-1 mr-1 btn btn-primary"
+           style="color: white;font-size: 18px;font-weight: bold">联动涨跌排序</a>
+        <a href="{{ url_for('stock_recommendation.fluctuation_combination_sorting') }}"
+           class="ml-1 mr-1 btn btn-secondary"
+           style="color: white;font-size: 18px;font-weight: bold">幅值组合排序</a>
+        <a href="{{ url_for('stock_recommendation.fluctuation_sequencing_sorting') }}"
+           class="ml-1 mr-1 btn btn-secondary"
+           style="color: white;font-size: 18px;font-weight: bold">涨跌幅排序</a>
+        <a href="{{ url_for('stock_recommendation.shape_matching_sorting') }}" class="ml-1 mr-1 btn btn-secondary"
+           style="color: white;font-size: 18px;font-weight: bold">走势形态匹配</a>
+    </div>
+{% endblock %}
+{% block page_container %}
+    <div class="row">
+        <div class="col-2 pl-5">
+            <div class="row">
+                <div class="nav flex-column nav-pills nav-pills-tab" id="v-pills-tab" role="tablist"
+                     aria-orientation="vertical">
+                    {% for day in date_list %}
+                        {% if day==date %}
+                            <a class="nav-link active mb-2"
+                               href="{{ url_for('stock_recommendation.associate_rule_sorting',date=day) }}">
+                                {{ "%s/%s/%s"|format(day[0:4],day[4:6],day[6:8]) }}
+                            </a>
+                        {% else %}
+                            <a class="nav-link mb-2"
+                               href="{{ url_for('stock_recommendation.associate_rule_sorting',date=day) }}">
+                                {{ "%s/%s/%s"|format(day[0:4],day[4:6],day[6:8]) }}
+                            </a>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+            </div> <!-- end row-->
+        </div>
+        <div class="col-10">
+            <div class="mt-1 mb-1" style="border-left: 5px solid skyblue;background-color: #F6F6F6"
+                 id="rise_rise"></div>
+            <div class="mt-1 mb-1" style="border-left: 5px solid skyblue;background-color: #F6F6F6"
+                 id="rise_fall"></div>
+            <div class="mt-1 mb-1" style="border-left: 5px solid skyblue;background-color: #F6F6F6"
+                 id="rise_not_rise"></div>
+            <div class="mt-1 mb-1" style="border-left: 5px solid skyblue;background-color: #F6F6F6"
+                 id="rise_not_fall"></div>
+            <div class="mt-1 mb-1" style="border-left: 5px solid skyblue;background-color: #F6F6F6"
+                 id="fall_rise"></div>
+            <div class="mt-1 mb-1" style="border-left: 5px solid skyblue;background-color: #F6F6F6"
+                 id="fall_fall"></div>
+            <div class="mt-1 mb-1" style="border-left: 5px solid skyblue;background-color: #F6F6F6"
+                 id="fall_not_rise"></div>
+            <div class="mt-1 mb-1" style="border-left: 5px solid skyblue;background-color: #F6F6F6"
+                 id="fall_not_fall"></div>
+            <div class="row">
+                <p>- 联动涨跌规则通过A股票推断B股票在下k个交易日是否是大涨或大跌。<br/>- 大涨是指涨幅超过2%，大跌是指跌幅超过-2%。<br/></p>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+{% block scripts %}
+    <script src="{{ url_for('static',filename='libs/sparkline/jquery.sparkline.min.js') }}"></script>
+    <script>
+        var date = "{{ date }}"
+    </script>
+    <script>
+        $.ajax({
+            type: "GET",
+            url: "{{ url_for('stock_recommendation.api_associate_rule_sorting') }}",
+            data: {date: '20181101'},
+            dataType: "json",
+            success: function (r) {
+                show_associate_rule(r)
+            }
+        });
+
+        function show_associate_rule(data) {
+            if (data.rise_rise.length != 0) {
+                var html = "<table><tbody>"
+                for (i = 0; i < data.rise_rise.length; i++) {
+                    html += "<tr>\n" +
+                        "                                <td width=\"400px\">[<a>" + data.rise_rise[i][0] + "</a>] 在 [{{ "%s/%s/%s"|format(date[0:4],date[4:6],date[6:8]) }}] 上涨\n" +
+                        "                                    [" + data.rise_rise[i][1] * 100 + "%] (" + data.rise_rise[i][4] + "/" + data.rise_rise[i][3] + ")<br/>\n" +
+                        "                                    <div style=\"background-color: #FFC400;height: 5px;width: 100%\">\n" +
+                        "                                        <div style=\"width: " + data.rise_rise[i][1] * 100 + "%;background-color: #2EB0CE;height: 5px\"\n" +
+                        "                                        ></div>\n" +
+                        "                                    </div>\n" +
+                        "\n" +
+                        "                                </td>\n" +
+                        "                                <td style=\"padding-left: 10px;padding-right: 10px\"> →</td>\n" +
+                        "                                <td width=\"400px\">[<a>" + data.rise_rise[i][6] + "</a>] 在 <span>[下1天]</span> <span\n" +
+                        "                                >大涨(>2%)</span> 的概率为 [" + data.rise_rise[i][2] * 100 + "%](" + data.rise_rise[i][5] + "/" + data.rise_rise[i][4] + ") <br>\n" +
+                        "                                    <div\n" +
+                        "                                            style=\"background-color: #FFC400;height: 5px;width: 100%\">\n" +
+                        "                                        <div style=\"width: " + data.rise_rise[i][2] * 100 + "%;background-color: #2EB0CE;height: 5px;\"\n" +
+                        "                                        ></div>\n" +
+                        "                                    </div>\n" +
+                        "                                </td>\n" +
+                        "                            </tr>"
+                }
+                html += "</tbody></table>"
+                $("#rise_rise").html(html)
+            }
+            if (data.rise_fall.length != 0) {
+                var html = "<table><tbody>"
+                for (i = 0; i < data.rise_fall.length; i++) {
+                    html += "<tr>\n" +
+                        "                                <td width=\"400px\">[<a>" + data.rise_fall[i][0] + "</a>] 在 [{{ "%s/%s/%s"|format(date[0:4],date[4:6],date[6:8]) }}] 上涨\n" +
+                        "                                    [" + data.rise_fall[i][1] * 100 + "%] (" + data.rise_fall[i][4] + "/" + data.rise_fall[i][3] + ")<br/>\n" +
+                        "                                    <div style=\"background-color: #FFC400;height: 5px;width: 100%\">\n" +
+                        "                                        <div style=\"width: " + data.rise_fall[i][1] * 100 + "%;background-color: #2EB0CE;height: 5px\"\n" +
+                        "                                        ></div>\n" +
+                        "                                    </div>\n" +
+                        "\n" +
+                        "                                </td>\n" +
+                        "                                <td style=\"padding-left: 10px;padding-right: 10px\"> →</td>\n" +
+                        "                                <td width=\"400px\">[<a>" + data.rise_fall[i][6] + "</a>] 在 <span>[下1天]</span> <span\n" +
+                        "                                >大跌(<-2%)</span> 的概率为 [" + data.rise_fall[i][2] * 100 + "%](" + data.rise_fall[i][5] + "/" + data.rise_fall[i][4] + ") <br>\n" +
+                        "                                    <div\n" +
+                        "                                            style=\"background-color: #FFC400;height: 5px;width: 100%\">\n" +
+                        "                                        <div style=\"width: " + data.rise_fall[i][2] * 100 + "%;background-color: #2EB0CE;height: 5px;\"\n" +
+                        "                                        ></div>\n" +
+                        "                                    </div>\n" +
+                        "                                </td>\n" +
+                        "                            </tr>"
+                }
+                html += "</tbody></table>"
+                $("#rise_fall").html(html)
+            }
+            if (data.rise_not_rise.length != 0) {
+                var html = "<table><tbody>"
+                for (i = 0; i < data.rise_not_rise.length; i++) {
+                    html += "<tr>\n" +
+                        "                                <td width=\"400px\">[<a>" + data.rise_not_rise[i][0] + "</a>] 在 [{{ "%s/%s/%s"|format(date[0:4],date[4:6],date[6:8]) }}] 上涨\n" +
+                        "                                    [" + data.rise_not_rise[i][1] * 100 + "%] (" + data.rise_not_rise[i][4] + "/" + data.rise_not_rise[i][3] + ")<br/>\n" +
+                        "                                    <div style=\"background-color: #FFC400;height: 5px;width: 100%\">\n" +
+                        "                                        <div style=\"width: " + data.rise_not_rise[i][1] * 100 + "%;background-color: #2EB0CE;height: 5px\"\n" +
+                        "                                        ></div>\n" +
+                        "                                    </div>\n" +
+                        "\n" +
+                        "                                </td>\n" +
+                        "                                <td style=\"padding-left: 10px;padding-right: 10px\"> →</td>\n" +
+                        "                                <td width=\"400px\">[<a>" + data.rise_not_rise[i][6] + "</a>] 在 <span>[下1天]</span> <span\n" +
+                        "                                >不会大涨(<2%)</span> 的概率为 [" + data.rise_not_rise[i][2] * 100 + "%](" + data.rise_not_rise[i][5] + "/" + data.rise_not_rise[i][4] + ") <br>\n" +
+                        "                                    <div\n" +
+                        "                                            style=\"background-color: #FFC400;height: 5px;width: 100%\">\n" +
+                        "                                        <div style=\"width: " + data.rise_not_rise[i][2] * 100 + "%;background-color: #2EB0CE;height: 5px;\"\n" +
+                        "                                        ></div>\n" +
+                        "                                    </div>\n" +
+                        "                                </td>\n" +
+                        "                            </tr>"
+                }
+                html += "</tbody></table>"
+                $("#rise_not_rise").html(html)
+            }
+            if (data.rise_not_fall.length != 0) {
+                var html = "<table><tbody>"
+                for (i = 0; i < data.rise_not_fall.length; i++) {
+                    html += "<tr>\n" +
+                        "                                <td width=\"400px\">[<a>" + data.rise_not_fall[i][0] + "</a>] 在 [{{ "%s/%s/%s"|format(date[0:4],date[4:6],date[6:8]) }}] 上涨\n" +
+                        "                                    [" + data.rise_not_fall[i][1] * 100 + "%] (" + data.rise_not_fall[i][4] + "/" + data.rise_not_fall[i][3] + ")<br/>\n" +
+                        "                                    <div style=\"background-color: #FFC400;height: 5px;width: 100%\">\n" +
+                        "                                        <div style=\"width: " + data.rise_not_fall[i][1] * 100 + "%;background-color: #2EB0CE;height: 5px\"\n" +
+                        "                                        ></div>\n" +
+                        "                                    </div>\n" +
+                        "\n" +
+                        "                                </td>\n" +
+                        "                                <td style=\"padding-left: 10px;padding-right: 10px\"> →</td>\n" +
+                        "                                <td width=\"400px\">[<a>" + data.rise_not_fall[i][6] + "</a>] 在 <span>[下1天]</span> <span\n" +
+                        "                                >不会大跌(>-2%)</span> 的概率为 [" + data.rise_not_fall[i][2] * 100 + "%](" + data.rise_not_fall[i][5] + "/" + data.rise_not_fall[i][4] + ") <br>\n" +
+                        "                                    <div\n" +
+                        "                                            style=\"background-color: #FFC400;height: 5px;width: 100%\">\n" +
+                        "                                        <div style=\"width: " + data.rise_not_fall[i][2] * 100 + "%;background-color: #2EB0CE;height: 5px;\"\n" +
+                        "                                        ></div>\n" +
+                        "                                    </div>\n" +
+                        "                                </td>\n" +
+                        "                            </tr>"
+                }
+                html += "</tbody></table>"
+                $("#rise_not_fall").html(html)
+
+            }
+            if (data.fall_rise.length != 0) {
+                var html = "<table><tbody>"
+                for (i = 0; i < data.fall_rise.length; i++) {
+                    html += "<tr>\n" +
+                        "                                <td width=\"400px\">[<a>" + data.fall_rise[i][0] + "</a>] 在 [{{ "%s/%s/%s"|format(date[0:4],date[4:6],date[6:8]) }}] 下跌\n" +
+                        "                                    [" + data.fall_rise[i][1] * 100 + "%] (" + data.fall_rise[i][4] + "/" + data.fall_rise[i][3] + ")<br/>\n" +
+                        "                                    <div style=\"background-color: #FFC400;height: 5px;width: 100%\">\n" +
+                        "                                        <div style=\"width: " + data.fall_rise[i][1] * 100 + "%;background-color: #2EB0CE;height: 5px\"\n" +
+                        "                                        ></div>\n" +
+                        "                                    </div>\n" +
+                        "\n" +
+                        "                                </td>\n" +
+                        "                                <td style=\"padding-left: 10px;padding-right: 10px\"> →</td>\n" +
+                        "                                <td width=\"400px\">[<a>" + data.fall_rise[i][6] + "</a>] 在 <span>[下1天]</span> <span\n" +
+                        "                                >大涨(>2%)</span> 的概率为 [" + data.fall_rise[i][2] * 100 + "%](" + data.fall_rise[i][5] + "/" + data.fall_rise[i][4] + ") <br>\n" +
+                        "                                    <div\n" +
+                        "                                            style=\"background-color: #FFC400;height: 5px;width: 100%\">\n" +
+                        "                                        <div style=\"width: " + data.fall_rise[i][2] * 100 + "%;background-color: #2EB0CE;height: 5px;\"\n" +
+                        "                                        ></div>\n" +
+                        "                                    </div>\n" +
+                        "                                </td>\n" +
+                        "                            </tr>"
+                }
+                html += "</tbody></table>"
+                $("#fall_rise").html(html)
+            }
+            if (data.fall_fall.length != 0) {
+                var html = "<table><tbody>"
+                for (i = 0; i < data.fall_fall.length; i++) {
+                    html += "<tr>\n" +
+                        "                                <td width=\"400px\">[<a>" + data.fall_fall[i][0] + "</a>] 在 [{{ "%s/%s/%s"|format(date[0:4],date[4:6],date[6:8]) }}] 下跌\n" +
+                        "                                    [" + data.fall_fall[i][1] * 100 + "%] (" + data.fall_fall[i][4] + "/" + data.fall_fall[i][3] + ")<br/>\n" +
+                        "                                    <div style=\"background-color: #FFC400;height: 5px;width: 100%\">\n" +
+                        "                                        <div style=\"width: " + data.fall_fall[i][1] * 100 + "%;background-color: #2EB0CE;height: 5px\"\n" +
+                        "                                        ></div>\n" +
+                        "                                    </div>\n" +
+                        "\n" +
+                        "                                </td>\n" +
+                        "                                <td style=\"padding-left: 10px;padding-right: 10px\"> →</td>\n" +
+                        "                                <td width=\"400px\">[<a>" + data.fall_fall[i][6] + "</a>] 在 <span>[下1天]</span> <span\n" +
+                        "                                >大跌(<-2%)</span> 的概率为 [" + data.fall_fall[i][2] * 100 + "%](" + data.fall_fall[i][5] + "/" + data.fall_fall[i][4] + ") <br>\n" +
+                        "                                    <div\n" +
+                        "                                            style=\"background-color: #FFC400;height: 5px;width: 100%\">\n" +
+                        "                                        <div style=\"width: " + data.fall_fall[i][2] * 100 + "%;background-color: #2EB0CE;height: 5px;\"\n" +
+                        "                                        ></div>\n" +
+                        "                                    </div>\n" +
+                        "                                </td>\n" +
+                        "                            </tr>"
+                }
+                html += "</tbody></table>"
+                $("#fall_fall").html(html)
+            }
+            if (data.fall_not_rise.length != 0) {
+                var html = "<table><tbody>"
+                for (i = 0; i < data.fall_not_rise.length; i++) {
+                    html += "<tr>\n" +
+                        "                                <td width=\"400px\">[<a>" + data.fall_not_rise[i][0] + "</a>] 在 [{{ "%s/%s/%s"|format(date[0:4],date[4:6],date[6:8]) }}] 下跌\n" +
+                        "                                    [" + data.fall_not_rise[i][1] * 100 + "%] (" + data.fall_not_rise[i][4] + "/" + data.fall_not_rise[i][3] + ")<br/>\n" +
+                        "                                    <div style=\"background-color: #FFC400;height: 5px;width: 100%\">\n" +
+                        "                                        <div style=\"width: " + data.fall_not_rise[i][1] * 100 + "%;background-color: #2EB0CE;height: 5px\"\n" +
+                        "                                        ></div>\n" +
+                        "                                    </div>\n" +
+                        "\n" +
+                        "                                </td>\n" +
+                        "                                <td style=\"padding-left: 10px;padding-right: 10px\"> →</td>\n" +
+                        "                                <td width=\"400px\">[<a>" + data.fall_not_rise[i][6] + "</a>] 在 <span>[下1天]</span> <span\n" +
+                        "                                >不会大涨(<2%)</span> 的概率为 [" + data.fall_not_rise[i][2] * 100 + "%](" + data.fall_not_rise[i][5] + "/" + data.fall_not_rise[i][4] + ") <br>\n" +
+                        "                                    <div\n" +
+                        "                                            style=\"background-color: #FFC400;height: 5px;width: 100%\">\n" +
+                        "                                        <div style=\"width: " + data.fall_not_rise[i][2] * 100 + "%;background-color: #2EB0CE;height: 5px;\"\n" +
+                        "                                        ></div>\n" +
+                        "                                    </div>\n" +
+                        "                                </td>\n" +
+                        "                            </tr>"
+                }
+                html += "</tbody></table>"
+                $("#fall_not_rise").html(html)
+            }
+            if (data.fall_not_fall.length != 0) {
+                var html = "<table><tbody>"
+                for (i = 0; i < data.fall_not_fall.length; i++) {
+                    html += "<tr>\n" +
+                        "                                <td width=\"400px\">[<a>" + data.fall_not_fall[i][0] + "</a>] 在 [{{ "%s/%s/%s"|format(date[0:4],date[4:6],date[6:8]) }}] 下跌\n" +
+                        "                                    [" + data.fall_not_fall[i][1] * 100 + "%] (" + data.fall_not_fall[i][4] + "/" + data.fall_not_fall[i][3] + ")<br/>\n" +
+                        "                                    <div style=\"background-color: #FFC400;height: 5px;width: 100%\">\n" +
+                        "                                        <div style=\"width: " + data.fall_not_fall[i][1] * 100 + "%;background-color: #2EB0CE;height: 5px\"\n" +
+                        "                                        ></div>\n" +
+                        "                                    </div>\n" +
+                        "\n" +
+                        "                                </td>\n" +
+                        "                                <td style=\"padding-left: 10px;padding-right: 10px\"> →</td>\n" +
+                        "                                <td width=\"400px\">[<a>" + data.fall_not_fall[i][6] + "</a>] 在 <span>[下1天]</span> <span\n" +
+                        "                                >不会大跌(>-2%)</span> 的概率为 [" + data.fall_not_fall[i][2] * 100 + "%](" + data.fall_not_fall[i][5] + "/" + data.fall_not_fall[i][4] + ") <br>\n" +
+                        "                                    <div\n" +
+                        "                                            style=\"background-color: #FFC400;height: 5px;width: 100%\">\n" +
+                        "                                        <div style=\"width: " + data.fall_not_fall[i][2] * 100 + "%;background-color: #2EB0CE;height: 5px;\"\n" +
+                        "                                        ></div>\n" +
+                        "                                    </div>\n" +
+                        "                                </td>\n" +
+                        "                            </tr>"
+                }
+                html += "</tbody></table>"
+                $("#fall_not_fall").html(html)
+            }
+        }
+    </script>
+{% endblock %}

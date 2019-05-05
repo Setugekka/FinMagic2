@@ -1,8 +1,8 @@
 from . import stock_prediction
 from flask import request, jsonify
 from webapp.models import *
-from library.datetime_function import get_offset_date
-
+from library.datetime_function import *
+from library.sql_function import *
 
 @stock_prediction.route('api_comprehensive_analysis', methods=['GET'])
 def api_comprehensive_analysis():
@@ -396,7 +396,371 @@ def api_trend_prediction():
                     'state_transition_data':state_transition_data})
 
 
+@stock_prediction.route('api_stock_assessment', methods=['GET'])
+def api_stock_assessment():
+    code = request.args.get('code')
+    date = request.args.get('date')
+    # 展示用参数
+    date="20181101"
 
+    stock_daily_bar_result = Stock_Daily_Bar.query.filter(Stock_Daily_Bar.ts_code == code,
+                                                          Stock_Daily_Bar.trade_date <= date).order_by(
+        Stock_Daily_Bar.trade_date.desc()).limit(500).all()
+    stock_daily_basic_result = Stock_Daily_Basic.query.filter(Stock_Daily_Basic.ts_code == code,
+                                                              Stock_Daily_Basic.trade_date <= date).order_by(
+        Stock_Daily_Basic.trade_date.desc()).limit(500).all()
+    stock_assessment_result = Model_Stock_Assessment.query.filter(Model_Stock_Assessment.ts_code == code,
+                                                                  Model_Stock_Assessment.trade_date <= date).order_by(
+        Model_Stock_Assessment.trade_date.desc()).limit(500).all()
+    stock_daily_bar_result.reverse()
+    stock_daily_basic_result.reverse()
+    stock_assessment_result.reverse()
+    company_data = Stock_Company_Extend.query.join(Stock_Industry_SW_3,
+                                                   Stock_Company_Extend.industry_sw_code == Stock_Industry_SW_3.industry_sw_3_code).add_columns(
+        Stock_Industry_SW_3.industry_sw_3_name).join(
+        Stock_Industry_SW_2, Stock_Industry_SW_3.belong_to == Stock_Industry_SW_2.industry_sw_2_code).add_columns(
+        Stock_Industry_SW_2.industry_sw_2_name).join(
+        Stock_Industry_SW_1, Stock_Industry_SW_2.belong_to == Stock_Industry_SW_1.industry_sw_1_code).add_columns(
+        Stock_Industry_SW_1.industry_sw_1_code, Stock_Industry_SW_1.industry_sw_1_name).join(Stock_Industry_CSRC_2,
+                                                                                             Stock_Company_Extend.industry_csrc_code== Stock_Industry_CSRC_2.industry_csrc_2_code).join(
+        Stock_Industry_CSRC_1,
+        Stock_Industry_CSRC_2.belong_to == Stock_Industry_CSRC_1.industry_csrc_1_code).add_columns(
+        Stock_Industry_CSRC_1.industry_csrc_1_code, Stock_Industry_CSRC_1.industry_csrc_1_name).filter(
+        Stock_Company_Extend.ts_code == code).first()
+    sw_industry, sw_industry_name = company_data.industry_sw_1_code, company_data.industry_sw_1_name
+    csrc_industry, csrc_industry_name = company_data.industry_csrc_1_code, company_data.industry_csrc_1_name
+    sw_industry_basic_result = Stock_Industry_Basic.query.filter(Stock_Industry_Basic.industry_code == sw_industry,
+                                                                 Stock_Industry_Basic.trade_date <= date).order_by(
+        Stock_Industry_Basic.trade_date.desc()).limit(500).all()
+    csrc_industry_basic_result = Stock_Industry_Basic.query.filter(Stock_Industry_Basic.industry_code == csrc_industry,
+                                                                   Stock_Industry_Basic.trade_date <= date).order_by(
+        Stock_Industry_Basic.trade_date.desc()).limit(500).all()
+    sw_industry_basic_result.reverse()
+    csrc_industry_basic_result.reverse()
+    csrc_order_result = Stock_Daily_Basic.query.join(Stock_Basic,
+                                                     Stock_Daily_Basic.ts_code == Stock_Basic.ts_code).add_columns(
+        Stock_Basic.name).join(Stock_Company_Extend, Stock_Daily_Basic.ts_code == Stock_Company_Extend.ts_code).join(
+        Stock_Industry_CSRC_2,
+        Stock_Company_Extend.industry_csrc_code == Stock_Industry_CSRC_2.industry_csrc_2_code).join(
+        Stock_Industry_CSRC_1,
+        Stock_Industry_CSRC_2.belong_to == Stock_Industry_CSRC_1.industry_csrc_1_code).filter(
+        Stock_Daily_Basic.trade_date == date,
+        Stock_Industry_CSRC_1.industry_csrc_1_code == csrc_industry).order_by(Stock_Daily_Basic.pe_ttm.asc()).all()
+    sw_order_result = Stock_Daily_Basic.query.join(Stock_Basic,
+                                                     Stock_Daily_Basic.ts_code == Stock_Basic.ts_code).add_columns(
+        Stock_Basic.name).join(Stock_Company_Extend,
+                                                   Stock_Daily_Basic.ts_code == Stock_Company_Extend.ts_code).join(
+        Stock_Industry_SW_3,
+        Stock_Company_Extend.industry_sw_code == Stock_Industry_SW_3.industry_sw_3_code).join(
+        Stock_Industry_SW_2, Stock_Industry_SW_3.belong_to == Stock_Industry_SW_2.industry_sw_2_code).join(
+        Stock_Industry_SW_1, Stock_Industry_SW_2.belong_to == Stock_Industry_SW_1.industry_sw_1_code).filter(
+        Stock_Daily_Basic.trade_date == date,
+        Stock_Industry_SW_1.industry_sw_1_code == sw_industry).order_by(Stock_Daily_Basic.pe_ttm.asc()).all()
+    csrc_order_number = 0
+    sw_order_number = 0
+
+    for i in range(0, len(csrc_order_result)):
+        if csrc_order_result[i].Stock_Daily_Basic.ts_code == code:
+            csrc_order_number = i + 1
+            break
+    for i in range(0, len(sw_order_result)):
+        if sw_order_result[i].Stock_Daily_Basic.ts_code == code:
+            sw_order_number = i + 1
+            break
+    csrc_order_data = []
+    sw_order_data = []
+    for i in csrc_order_result[0:5]:
+        csrc_order_data.append([i.Stock_Daily_Basic.ts_code,i.name, i.Stock_Daily_Basic.pe_ttm])
+    for i in sw_order_result[0:5]:
+        sw_order_data.append([i.Stock_Daily_Basic.ts_code,i.name, i.Stock_Daily_Basic.pe_ttm])
+    close_list = []
+    for i in stock_daily_bar_result:
+        trade_date = i.trade_date
+        close_list.append([(trade_date[0:4] + '/' + trade_date[4:6] + '/' + trade_date[6:8]), i.close])
+    assessment_list = []
+    for i in stock_assessment_result:
+        assessment_list.append([i.estimated_value, i.estimated_value_std])
+    pe_list = []
+    for i in stock_daily_basic_result:
+        trade_date = i.trade_date
+        pe_list.append([(trade_date[0:4] + '/' + trade_date[4:6] + '/' + trade_date[6:8]), i.pe_ttm])
+    csrc_pe_list = []
+    sw_pe_list = []
+    for i in csrc_industry_basic_result:
+        csrc_pe_list.append(i.pe_ttm_overall)
+    for i in sw_industry_basic_result:
+        sw_pe_list.append(i.pe_ttm_overall)
+
+    today_data = {'close': stock_daily_bar_result[-1].close,
+                  'pe_ttm': stock_daily_basic_result[-1].pe_ttm,
+                  'csrc_pe': csrc_industry_basic_result[-1].pe_ttm_overall,
+                  'sw_pe': sw_industry_basic_result[-1].pe_ttm_overall,
+                  'estimated_value': stock_assessment_result[-1].estimated_value,
+                  'estimated_value_std': stock_assessment_result[-1].estimated_value_std,
+                  'similar_pe_count': stock_assessment_result[-1].similar_pe_count,
+                  'pe_mean': stock_assessment_result[-1].pe_mean,
+                  'pe_std': stock_assessment_result[-1].pe_std,
+                  'pe_min': stock_assessment_result[-1].pe_min,
+                  'pe_max': stock_assessment_result[-1].pe_max}
+
+    assessment_data = {'close': close_list, 'assessment': assessment_list}
+
+    industry_compare_data = {'pe': pe_list, 'csrc_pe': csrc_pe_list, 'sw_pe': sw_pe_list}
+
+    order_data = {'sw_industry': sw_industry_name, 'csrc_industry': csrc_industry_name, 'csrc_order': csrc_order_number,
+                  'csrc_order_data': csrc_order_data, 'sw_order': sw_order_number, 'sw_order_data': sw_order_data}
+    return jsonify(
+        {'today_data': today_data, 'assessment_data': assessment_data, 'industry_compare_data': industry_compare_data,
+         'order_data': order_data})
+
+
+@stock_prediction.route('api_money_flow', methods=['GET'])
+def api_money_flow():
+    code = request.args.get('code')
+    date = request.args.get('date')
+    # 展示用参数
+    date="20181101"
+
+    stock_bar_result = Stock_Daily_Bar.query.filter(Stock_Daily_Bar.ts_code == code,
+                                                    Stock_Daily_Bar.trade_date <= date).order_by(
+        Stock_Daily_Bar.trade_date.desc()).limit(20).all()
+    stock_daily_basic_result = Stock_Daily_Basic.query.filter(Stock_Daily_Basic.ts_code == code,
+                                                              Stock_Daily_Basic.trade_date <= date).order_by(
+        Stock_Daily_Basic.trade_date.desc()).limit(20).all()
+    money_flow_result = Market_Money_Flow.query.filter(Market_Money_Flow.ts_code == code,
+                                                       Market_Money_Flow.trade_date <= date).order_by(
+        Market_Money_Flow.trade_date.desc()).limit(20).all()
+    stock_bar_result.reverse()
+    stock_daily_basic_result.reverse()
+    money_flow_result.reverse()
+    today_data = {'buy_sm': money_flow_result[-1].buy_sm_amount,
+                  'sell_sm': money_flow_result[-1].sell_sm_amount,
+                  'buy_md': money_flow_result[-1].buy_md_amount,
+                  'sell_md': money_flow_result[-1].sell_md_amount,
+                  'buy_lg': money_flow_result[-1].buy_lg_amount,
+                  'sell_lg': money_flow_result[-1].sell_lg_amount,
+                  'buy_elg': money_flow_result[-1].buy_elg_amount,
+                  'sell_elg': money_flow_result[-1].sell_lg_amount,
+                  'amount': stock_bar_result[-1].amount / 10}
+    pct_chg_list = []
+    trade_date_list = []
+    for i in stock_bar_result:
+        trade_date = i.trade_date
+        trade_date_list.append((trade_date[0:4] + '/' + trade_date[4:6] + '/' + trade_date[6:8]))
+        pct_chg_list.append(i.pct_chg)
+    main_buy_list = []
+    main_sell_list = []
+    retail_buy_list = []
+    retail_sell_list = []
+    money_dist_data = []
+    net_list = []
+    for i in money_flow_result:
+        trade_date = i.trade_date
+        net_list.append(i.net_mf_amount)
+        main_buy_list.append(i.buy_lg_amount + i.buy_elg_amount)
+        main_sell_list.append(i.sell_lg_amount + i.sell_elg_amount)
+        retail_buy_list.append(i.buy_sm_amount + i.buy_md_amount)
+        retail_sell_list.append(i.sell_sm_amount + i.sell_md_amount)
+        money_dist_data.append(
+            [(trade_date[0:4] + '/' + trade_date[4:6] + '/' + trade_date[6:8]), i.buy_sm_amount + i.sell_sm_amount,
+             i.buy_md_amount + i.sell_md_amount, i.buy_lg_amount + i.sell_lg_amount,
+             i.buy_elg_amount + i.sell_elg_amount])
+    corr_list = []
+    scale_list = []
+    for x, y, z in zip(stock_daily_basic_result, pct_chg_list, net_list):
+        corr_list.append(z / (x.circ_mv / (1 + y) * y))
+    for i in money_dist_data:
+        scale_list.append((i[3] + i[4]) / (i[1] + i[2] + i[3] + i[4]))
+    money_flow_data = {'trade_date': trade_date_list, 'pct_chg': pct_chg_list, 'main_buy': main_buy_list,
+                       'main_sell': main_sell_list, 'retail_buy': retail_buy_list, 'retail_sell': retail_sell_list}
+    main_ability = {'scale': scale_list[-1],
+                    'corr': corr_list[-1],
+                    'scale_list': scale_list,
+                    'corr_list': corr_list}
+    return jsonify({'today_data': today_data, 'money_flow_data': money_flow_data, 'money_dist_data': money_dist_data,
+                    'main_ability': main_ability})
+
+
+@stock_prediction.route('api_rule_statistics', methods=['GET'])
+def api_rule_statistics():
+    code = request.args.get('code')
+    date = request.args.get('date')
+    date='20181101'
+    bar_data = Stock_Daily_Bar.query.filter_by(ts_code=code, trade_date=date).first()
+    basic_data = Stock_Daily_Basic.query.filter_by(ts_code=code, trade_date=date).first()
+    today_bar_data = {'open': bar_data.open, 'close': bar_data.close, 'high': bar_data.high,
+                      'low': bar_data.low, 'change': bar_data.change, 'pct_chg': bar_data.pct_chg,
+                      'pre_close': bar_data.pre_close, 'vol': bar_data.vol, 'amount': bar_data.amount}
+    ####################################应对数据库不完全 临时措施
+    if basic_data is None:
+        today_basic_data = {'turnover_rate': 0, 'pe': 0, 'pb': 0,
+                            'circ_mv': 0}
+    else:
+        today_basic_data = {'turnover_rate': basic_data.turnover_rate, 'pe': basic_data.pe, 'pb': basic_data.pb,
+                            'circ_mv': basic_data.circ_mv}
+    #################################正常应该修改
+    rise_rise_data=[]
+    rise_rise_result=Model_Associate_Rule.query.join(Stock_Basic,Model_Associate_Rule.associate_code==Stock_Basic.ts_code).add_columns(Stock_Basic.name).filter(Model_Associate_Rule.ts_code==code,Model_Associate_Rule.trade_date==date,Model_Associate_Rule.associate_type=='rise_rise').order_by(Model_Associate_Rule.probability.desc()).all()
+    for i in rise_rise_result:
+        rise_rise_data.append([i.name,i.Model_Associate_Rule.approval_rating,i.Model_Associate_Rule.probability,i.Model_Associate_Rule.trading_day_count,i.Model_Associate_Rule.matching_day_count,i.Model_Associate_Rule.effect_day_count])
+    rise_fall_data=[]
+    rise_fall_result=Model_Associate_Rule.query.join(Stock_Basic,Model_Associate_Rule.associate_code==Stock_Basic.ts_code).add_columns(Stock_Basic.name).filter(Model_Associate_Rule.ts_code==code,Model_Associate_Rule.trade_date==date,Model_Associate_Rule.associate_type=='rise_fall').order_by(Model_Associate_Rule.probability.desc()).all()
+    for i in rise_fall_result:
+        rise_fall_data.append([i.name,i.Model_Associate_Rule.approval_rating,i.Model_Associate_Rule.probability,i.Model_Associate_Rule.trading_day_count,i.Model_Associate_Rule.matching_day_count,i.Model_Associate_Rule.effect_day_count])
+    rise_not_rise_data=[]
+    rise_not_rise_result=Model_Associate_Rule.query.join(Stock_Basic,Model_Associate_Rule.associate_code==Stock_Basic.ts_code).add_columns(Stock_Basic.name).filter(Model_Associate_Rule.ts_code==code,Model_Associate_Rule.trade_date==date,Model_Associate_Rule.associate_type=='rise_not_rise').order_by(Model_Associate_Rule.probability.desc()).all()
+    for i in rise_not_rise_result:
+        rise_not_rise_data.append([i.name,i.Model_Associate_Rule.approval_rating,i.Model_Associate_Rule.probability,i.Model_Associate_Rule.trading_day_count,i.Model_Associate_Rule.matching_day_count,i.Model_Associate_Rule.effect_day_count])
+    rise_not_fall_data=[]
+    rise_not_fall_result=Model_Associate_Rule.query.join(Stock_Basic,Model_Associate_Rule.associate_code==Stock_Basic.ts_code).add_columns(Stock_Basic.name).filter(Model_Associate_Rule.ts_code==code,Model_Associate_Rule.trade_date==date,Model_Associate_Rule.associate_type=='rise_not_fall').order_by(Model_Associate_Rule.probability.desc()).all()
+    for i in rise_not_fall_result:
+        rise_not_fall_data.append([i.name,i.Model_Associate_Rule.approval_rating,i.Model_Associate_Rule.probability,i.Model_Associate_Rule.trading_day_count,i.Model_Associate_Rule.matching_day_count,i.Model_Associate_Rule.effect_day_count])
+    fall_rise_data=[]
+    fall_rise_result=Model_Associate_Rule.query.join(Stock_Basic,Model_Associate_Rule.associate_code==Stock_Basic.ts_code).add_columns(Stock_Basic.name).filter(Model_Associate_Rule.ts_code==code,Model_Associate_Rule.trade_date==date,Model_Associate_Rule.associate_type=='fall_rise').order_by(Model_Associate_Rule.probability.desc()).all()
+    for i in fall_rise_result:
+        fall_rise_data.append([i.name,i.Model_Associate_Rule.approval_rating,i.Model_Associate_Rule.probability,i.Model_Associate_Rule.trading_day_count,i.Model_Associate_Rule.matching_day_count,i.Model_Associate_Rule.effect_day_count])
+    fall_fall_data=[]
+    fall_fall_result=Model_Associate_Rule.query.join(Stock_Basic,Model_Associate_Rule.associate_code==Stock_Basic.ts_code).add_columns(Stock_Basic.name).filter(Model_Associate_Rule.ts_code==code,Model_Associate_Rule.trade_date==date,Model_Associate_Rule.associate_type=='fall_fall').order_by(Model_Associate_Rule.probability.desc()).all()
+    for i in fall_fall_result:
+        fall_fall_data.append([i.name,i.Model_Associate_Rule.approval_rating,i.Model_Associate_Rule.probability,i.Model_Associate_Rule.trading_day_count,i.Model_Associate_Rule.matching_day_count,i.Model_Associate_Rule.effect_day_count])
+    fall_not_rise_data=[]
+    fall_not_rise_result=Model_Associate_Rule.query.join(Stock_Basic,Model_Associate_Rule.associate_code==Stock_Basic.ts_code).add_columns(Stock_Basic.name).filter(Model_Associate_Rule.ts_code==code,Model_Associate_Rule.trade_date==date,Model_Associate_Rule.associate_type=='fall_not_rise').order_by(Model_Associate_Rule.probability.desc()).all()
+    for i in fall_not_rise_result:
+        fall_not_rise_data.append([i.name,i.Model_Associate_Rule.approval_rating,i.Model_Associate_Rule.probability,i.Model_Associate_Rule.trading_day_count,i.Model_Associate_Rule.matching_day_count,i.Model_Associate_Rule.effect_day_count])
+    fall_not_fall_data=[]
+    fall_not_fall_result=Model_Associate_Rule.query.join(Stock_Basic,Model_Associate_Rule.associate_code==Stock_Basic.ts_code).add_columns(Stock_Basic.name).filter(Model_Associate_Rule.ts_code==code,Model_Associate_Rule.trade_date==date,Model_Associate_Rule.associate_type=='fall_not_fall').order_by(Model_Associate_Rule.probability.desc()).all()
+    for i in fall_not_fall_result:
+        fall_not_fall_data.append([i.name,i.Model_Associate_Rule.approval_rating,i.Model_Associate_Rule.probability,i.Model_Associate_Rule.trading_day_count,i.Model_Associate_Rule.matching_day_count,i.Model_Associate_Rule.effect_day_count])
+    associate_rule_data={'rise_rise':rise_rise_data,'rise_fall':rise_fall_data,'rise_not_rise':rise_not_rise_data,'rise_not_fall':rise_not_fall_data,
+                         'fall_rise':fall_rise_data,'fall_fall':fall_fall_data,'fall_not_rise':fall_not_rise_data,'fall_not_fall':fall_not_fall_data}
+
+    fluctuation_statistics_result=Model_Fluctuation_Statistics.query.filter_by(ts_code=code,trade_date=date).first()
+    fluctuation_statistics_data={'D4':fluctuation_statistics_result.D4,
+                                 'D3':fluctuation_statistics_result.D3,
+                                 'D2':fluctuation_statistics_result.D2,
+                                 'D1':fluctuation_statistics_result.D1,
+                                 'five_total_count':fluctuation_statistics_result.five_total_count,
+                                 'five_D0_list':sql_to_object(fluctuation_statistics_result.five_D0_list),
+                                 'five_appearance_count_list':sql_to_object(fluctuation_statistics_result.five_appearance_count_list),
+                                 'five_proportion_list':sql_to_object(fluctuation_statistics_result.five_proportion_list),
+                                 'four_total_count':fluctuation_statistics_result.four_total_count,
+                                 'four_D0_list':sql_to_object(fluctuation_statistics_result.four_D0_list),
+                                 'four_appearance_count_list':sql_to_object(fluctuation_statistics_result.four_appearance_count_list),
+                                 'four_proportion_list':sql_to_object(fluctuation_statistics_result.four_proportion_list),
+                                 'three_total_count':fluctuation_statistics_result.three_total_count,
+                                 'three_D0_list':sql_to_object(fluctuation_statistics_result.three_D0_list),
+                                 'three_appearance_count_list':sql_to_object(fluctuation_statistics_result.three_appearance_count_list),
+                                 'three_proportion_list':sql_to_object(fluctuation_statistics_result.three_proportion_list),
+                                 'two_total_count':fluctuation_statistics_result.two_total_count,
+                                 'two_D0_list':sql_to_object(fluctuation_statistics_result.two_D0_list),
+                                 'two_appearance_count_list':sql_to_object(fluctuation_statistics_result.two_appearance_count_list),
+                                 'two_proportion_list':sql_to_object(fluctuation_statistics_result.two_proportion_list),
+                                 'one_total_count':fluctuation_statistics_result.one_total_count,
+                                 'one_D0_list':sql_to_object(fluctuation_statistics_result.one_D0_list),
+                                 'one_appearance_count_list':sql_to_object(fluctuation_statistics_result.one_appearance_count_list),
+                                 'one_proportion_list':sql_to_object(fluctuation_statistics_result.one_proportion_list)}
+
+    fluctuation_correlation_result=Model_Fluctuation_Correlation.query.filter_by(ts_code=code,trade_date=date).first()
+    fluctuation_correlation_data={'D4':fluctuation_correlation_result.D4,
+                                  'D3':fluctuation_correlation_result.D3,
+                                  'D2':fluctuation_correlation_result.D2,
+                                  'D1':fluctuation_correlation_result.D1,
+                                  'five_sample_count':fluctuation_correlation_result.five_sample_count,
+                                  'five_total_count':fluctuation_correlation_result.five_total_count,
+                                  'five_approval_rating':fluctuation_correlation_result.five_approval_rating,
+                                  'five_D0_list':sql_to_object(fluctuation_correlation_result.five_D0_list),
+                                  'five_appearance_count_list':sql_to_object(fluctuation_correlation_result.five_appearance_count_list),
+                                  'five_proportion_list':sql_to_object(fluctuation_correlation_result.five_proportion_list),
+                                  'four_sample_count': fluctuation_correlation_result.four_sample_count,
+                                  'four_total_count': fluctuation_correlation_result.four_total_count,
+                                  'four_approval_rating': fluctuation_correlation_result.four_approval_rating,
+                                  'four_D0_list': sql_to_object(fluctuation_correlation_result.four_D0_list),
+                                  'four_appearance_count_list': sql_to_object(fluctuation_correlation_result.four_appearance_count_list),
+                                  'four_proportion_list': sql_to_object(fluctuation_correlation_result.four_proportion_list),
+                                  'three_sample_count': fluctuation_correlation_result.three_sample_count,
+                                  'three_total_count': fluctuation_correlation_result.three_total_count,
+                                  'three_approval_rating': fluctuation_correlation_result.three_approval_rating,
+                                  'three_D0_list': sql_to_object(fluctuation_correlation_result.three_D0_list),
+                                  'three_appearance_count_list': sql_to_object(fluctuation_correlation_result.three_appearance_count_list),
+                                  'three_proportion_list': sql_to_object(fluctuation_correlation_result.three_proportion_list),
+                                  'two_sample_count': fluctuation_correlation_result.two_sample_count,
+                                  'two_total_count': fluctuation_correlation_result.two_total_count,
+                                  'two_approval_rating': fluctuation_correlation_result.two_approval_rating,
+                                  'two_D0_list': sql_to_object(fluctuation_correlation_result.two_D0_list),
+                                  'two_appearance_count_list': sql_to_object(fluctuation_correlation_result.two_appearance_count_list),
+                                  'two_proportion_list': sql_to_object(fluctuation_correlation_result.two_proportion_list),
+                                  }
+
+    fluctuation_sequencing_result=Model_Fluctuation_Sequencing.query.filter_by(ts_code=code,trade_date=date).first()
+    fluctuation_sequencing_data={'close':fluctuation_sequencing_result.close,
+                                 'high_change':fluctuation_sequencing_result.high_change,
+                                 'high_order':fluctuation_sequencing_result.high_order,
+                                 'low_change':fluctuation_sequencing_result.low_change,
+                                 'low_order':fluctuation_sequencing_result.low_order,
+                                 'order_sum':fluctuation_sequencing_result.order_sum}
+
+    high_change_list=[]
+    high_change_result=Model_Fluctuation_Sequencing.query.filter_by(trade_date=date).all()
+    for i in high_change_result:
+        high_change_list.append(int(i.high_change*100+0.5))
+    high_change_statistics=[0]*101
+    for i in high_change_list:
+        high_change_statistics[100+i]+=1
+    similarity_fluctuation_result = Model_Similarity_Fluctuation.query.filter_by(ts_code=code,trade_date=date).first()
+    similarity_trend_result = Model_Similarity_Trend.query.filter_by(ts_code=code,trade_date=date).first()
+    similarity_fluctuation_stock_list=sql_to_object(similarity_fluctuation_result.stock_list)
+    similarity_fluctuation_liveness_list=sql_to_object(similarity_fluctuation_result.liveness_list)
+    similarity_trend_stock_list = sql_to_object(similarity_trend_result.stock_list)
+    similarity_trend_liveness_list = sql_to_object(similarity_trend_result.liveness_list)
+    similarity_fluctuation_stock_data=[]
+    similarity_fluctuation_pct_chg_data=[]
+    for i in similarity_fluctuation_stock_list:
+        stock_data=Stock_Basic.query.filter_by(ts_code=i).first()
+        stock_bar=Stock_Daily_Bar.query.filter(Stock_Daily_Bar.ts_code==i,Stock_Daily_Bar.trade_date<=date).order_by(Stock_Daily_Bar.trade_date.desc()).limit(120).all()
+        stock_bar.reverse()
+        pct_chg_data=[]
+        for j in stock_bar:
+            if j.pct_chg>=2:
+                pct_chg_data.append(1)
+            elif j.pct_chg<=-2:
+                pct_chg_data.append(-1)
+            else:
+                pct_chg_data.append(0)
+        similarity_fluctuation_stock_data.append({'name': stock_data.name, 'symbol': stock_data.symbol})
+        similarity_fluctuation_pct_chg_data.append(pct_chg_data)
+    similarity_trend_stock_data=[]
+    similarity_trend_close_data=[]
+    for i in similarity_trend_stock_list:
+        stock_data=Stock_Basic.query.filter_by(ts_code=i).first()
+        stock_bar=Stock_Daily_Bar.query.filter(Stock_Daily_Bar.ts_code==i,Stock_Daily_Bar.trade_date<=date,Stock_Daily_Bar.trade_date>='20150101').order_by(Stock_Daily_Bar.trade_date.asc()).all()
+        close_data=[]
+        for j in stock_bar:
+            close_data.append(j.close)
+        similarity_trend_stock_data.append({'name': stock_data.name, 'symbol': stock_data.symbol})
+        similarity_trend_close_data.append(close_data)
+
+    cur_stock_pct_chg_data=[]
+    cur_stock_close_data=[]
+    cur_stock_bar_result=Stock_Daily_Bar.query.filter(Stock_Daily_Bar.ts_code==code,Stock_Daily_Bar.trade_date<=date,Stock_Daily_Bar.trade_date>='20150101').order_by(Stock_Daily_Bar.trade_date.asc()).all()
+    n=0
+    for i in cur_stock_bar_result[-120:]:
+        if i.pct_chg >= 2:
+            cur_stock_pct_chg_data.append(1)
+        elif i.pct_chg <= -2:
+            cur_stock_pct_chg_data.append(-1)
+        else:
+            n+=1
+            cur_stock_pct_chg_data.append(0)
+    cur_stock_liveness_data=(120-n)/120
+    for i in cur_stock_bar_result:
+        cur_stock_close_data.append(i.close)
+
+
+    return jsonify({'associate_rule':associate_rule_data,'fluctuation_statistics':fluctuation_statistics_data,'fluctuation_correlation':fluctuation_correlation_data,
+                    'fluctuation_sequencing':{'sequencing_data':fluctuation_sequencing_data,'high_change_statistics':high_change_statistics},
+                    'similarity_fluctuation':{'stock':similarity_fluctuation_stock_data,'liveness':similarity_fluctuation_liveness_list,'pct_chg':similarity_fluctuation_pct_chg_data,'cur_stock_pct_chg':cur_stock_pct_chg_data,'cur_stock_liveness':cur_stock_liveness_data},
+                    'similarity_trend':{'stock':similarity_trend_stock_data,'liveness':similarity_trend_liveness_list,'close':similarity_trend_close_data,'cur_stock_close':cur_stock_close_data,'cur_stock_liveness':cur_stock_liveness_data},
+                    'today_bar_data':today_bar_data,'today_basic_data':today_basic_data})
 #####################################################
 import tushare as ts
 @stock_prediction.route('api_qjzn',methods=['GET'])

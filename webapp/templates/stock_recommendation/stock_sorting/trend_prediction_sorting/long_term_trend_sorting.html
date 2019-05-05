@@ -1,0 +1,121 @@
+{% extends "stock_recommendation/stock_sorting/trend_prediction_sorting/trend_prediction_sorting_base.html" %}
+{% block styles %}
+    <style>
+.progress{
+    box-shadow: none;
+    border-radius: 8px;
+    background-color: #f2f2f2;
+    height: 50px;
+    margin-bottom: 20px;
+    display: block;
+    width: 95%;
+    padding: 5px;
+    margin: 0 auto;
+
+}
+.progress-bar {
+    line-height: 60px;
+    font-size: 12px;
+        float: left;
+    width: 0;
+    height: 100%;
+    color: #fff;
+    text-align: center;
+    background-color: #b4b4b4;
+}
+.progress .progress-bar-green {
+    background-color: #1ab394;
+    border-radius: 10px 0 0 10px;
+}
+.progress .progress-bar-gray {
+    background-color: #b4b4b4;
+}
+.progress .progress-bar-red {
+    background-color: #cd5e63;
+    border-radius: 0 10px 10px 0;
+}
+    </style>
+{% endblock %}
+{% block pagetitle %}
+    <div class="page-title-alt-bg"></div>
+    <div class="page-title-box">
+        <ol class="breadcrumb float-right">
+            <li class="breadcrumb-item"><a href="javascript:void(0);">个股排序</a></li>
+            <li class="breadcrumb-item"><a href="javascript:void(0);">走势预测排序</a></li>
+            <li class="breadcrumb-item active">长期趋势排序</li>
+        </ol>
+        <h4 class="page-title">长期趋势排序</h4>
+        <div class="pb-1">根据每只股票未来上涨的概率进行排序。</div>
+    </div>
+{% endblock %}
+
+{% block page_container %}
+    <div class="row">
+        <div class="col-2 pl-5">
+            <div class="row">
+                <div class="nav flex-column nav-pills nav-pills-tab" id="v-pills-tab" role="tablist"
+                     aria-orientation="vertical">
+                    {% for day in date_list %}
+                        {% if day==date %}
+                            <a class="nav-link active mb-2"
+                               href="{{ url_for('stock_recommendation.long_term_trend_sorting',date=day) }}">
+                                {{ "%s/%s/%s"|format(day[0:4],day[4:6],day[6:8]) }}
+                            </a>
+                        {% else %}
+                            <a class="nav-link mb-2"
+                               href="{{ url_for('stock_recommendation.long_term_trend_sorting',date=day) }}">
+                                {{ "%s/%s/%s"|format(day[0:4],day[4:6],day[6:8]) }}
+                            </a>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+            </div> <!-- end row-->
+        </div>
+        <div class="col-10">
+            <div class="row" id="table">
+            </div>
+            <div class="row">
+                <p>- 长期趋势表示股票长期的涨幅趋势，是通过每只股票的状态转移矩阵稳态的求解获得的。<br/>- 可以根据概率大小判断股票长期走势的强弱情况。直观上，判断图形 <span style="color: #ff0000">红色区域（上涨）</span>与
+            <span style="color: #008000">绿色区域（下跌）</span> 的大小即可。<br/>- 可以据此制定未来投资策略，在较低点买入，并做好长期持有的准备。<br/></p>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+{% block page_scripts %}
+    <script>
+        $.ajax({
+            type: "GET",
+            url: "{{ url_for('stock_recommendation.api_long_term_trend_sorting') }}",
+            data: {date: '20181101'},
+            dataType: "json",
+            success: function (r) {
+                show_table(r)
+            }
+        });
+        function show_table(data) {
+            var html="<table class=\"table table-hover fullwidth\" style=\"table-layout: fixed; text-align: center;\">\n" +
+                "                <thead>\n" +
+                "                <tr>\n" +
+                "                    <th style=\"width: 50px;\">#</th>\n" +
+                "                    <th style=\"width: 100px;\">股票名称</th>\n" +
+                "                    <th>长期强弱情况</th>\n" +
+                "                    <th style=\"width: 80px;\">换手率</th>\n" +
+                "                </tr>\n" +
+                "                </thead>\n" +
+                "                <tbody>"
+            for(var i=0;i<data.length;i++){
+                html+="<tr>\n" +
+                    "                    <td style=\"vertical-align: middle;\">"+(i+1)+"</td>\n" +
+                    "                    <td style=\"color:#ff0000;vertical-align: middle;\"><a target=\"_blank\"\n" +
+                    "                                        >"+data[i].name+"<br/>("+data[i].symbol+")</a></td>\n" +
+                    "                    <td><span class=\"progress\"><span class=\"progress-bar progress-bar-green\" style=\"width: "+data[i].fall*100+"%\">下跌("+(data[i].fall*100).toFixed(2)+"%)</span><span\n" +
+                    "                            class=\"progress-bar progress-bar-gray\" style=\"width: "+data[i].maintain*100+"%\">持平("+(data[i].maintain*100).toFixed(2)+"%)</span><span\n" +
+                    "                            class=\"progress-bar progress-bar-red\" style=\"width: "+data[i].rise*100+"%\">上涨("+(data[i].rise*100).toFixed(2)+"%)</span></span></td>\n" +
+                    "                    <td style=\"vertical-align: middle;\">"+data[i].turnover_rate+"%</td>\n" +
+                    "                </tr>"
+            }
+            html+="</tbody></table>"
+            $("#table").html(html)
+        }
+    </script>
+{% endblock %}

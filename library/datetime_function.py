@@ -20,3 +20,11 @@ def get_offset_date(now,day):
     offset_date_string=offset_date.strftime('%Y%m%d')
     return offset_date_string
 
+def get_offset_open_date_list(date,period=30):
+    date_result = Market_Calendar.query.filter(Market_Calendar.is_open==1,Market_Calendar.cal_date<=date).order_by(Market_Calendar.cal_date.desc()).limit(
+        period).all()
+    date_result.reverse()
+    date_list = []
+    for i in date_result:
+        date_list.append(i.cal_date)
+    return date_list

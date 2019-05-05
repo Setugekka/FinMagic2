@@ -1,0 +1,1048 @@
+{% extends "stock_prediction/stock_prediction_base.html" %}
+{% block page_container %}
+    <div class="row">
+        <div class="col-2 pl-5">
+            <div class="row">
+                <div class="nav flex-column nav-pills nav-pills-tab" id="v-pills-tab" role="tablist"
+                     aria-orientation="vertical">
+                    {% for day in date_list %}
+                        {% if day==date %}
+                            <a class="nav-link active mb-2"
+                               href="{{ url_for('stock_prediction.comprehensive_analysis',code=stock.ts_code,date=day) }}">
+                                {{ "%s/%s/%s"|format(day[0:4],day[4:6],day[6:8]) }}
+                            </a>
+                        {% else %}
+                            <a class="nav-link mb-2"
+                               href="{{ url_for('stock_prediction.comprehensive_analysis',code=stock.ts_code,date=day) }}">
+                                {{ "%s/%s/%s"|format(day[0:4],day[4:6],day[6:8]) }}
+                            </a>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+            </div> <!-- end row-->
+        </div>
+        <div class="col-10">
+
+            <div class="card">
+                <div class="card-header" style="font-size: 20px;font-weight: bold">
+                    今日资金({{ "%s/%s/%s"|format(date[0:4],date[4:6],date[6:8]) }})
+                    <button class="btn btn-info">详解</button>
+                </div>
+                <div class="card-body">
+                    <div class="row" id="today_data">
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header" style="font-size: 20px;font-weight: bold">
+                    资金流向
+                    <button class="btn btn-info">排序</button>
+                </div>
+                <div class="card-body">
+                    <div style="width: 100%;height: 800px" id="main_money_flow"></div>
+                    <div class="row mb-3" style="color: gray">
+                        ● 主力资金定义为大单和超大单的总和。<br/>
+                        ● 主力净流入和涨跌幅曲线对比可用于判断主力资金与股票涨跌的(正)相关关系及相关性程度(即主力控盘能力)。<br/>
+                        ● 主力净流入累加曲线可用于判断主力的筹码变化情况。
+                    </div>
+                    <div style="width: 100%;height: 800px" id="retail_money_flow"></div>
+                    <div class="row mb-3" style="color: gray">
+                        ● 散户资金定义为小单和中单的总和。<br/>
+                        ● 散户净流入和涨跌幅曲线可用于判断散户资金与股票涨跌的(负)相关关系及其程度。<br/>
+                        ● 散户净流入累加曲线可用于判断散户的筹码变化情况。
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header" style="font-size: 20px;font-weight: bold">
+                    资金分布
+                    <button class="btn btn-info">排序</button>
+                </div>
+                <div class="card-body">
+                    <div style="width: 100%;height: 800px" id="money_dist_5"></div>
+                    <div class="row mb-3" style="color: gray">
+                        ● 单的大小区间定义由系统根据每日成交情况自动界定。
+                    </div>
+                    <div style="width: 100%;height: 800px" id="money_dist_20"></div>
+                    <div class="row mb-3" style="color: gray">
+                        ● 单的大小区间定义由系统根据每日成交情况自动界定。<br/>
+                        ● 该图可用于判断主力资金的参与程度。
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header" style="font-size: 20px;font-weight: bold">
+                    主力控盘能力
+                    <button class="btn btn-info">排序</button>
+                </div>
+                <div class="card-body">
+                    <div style="width: 100%;height: 400px" id="today_main_ability"></div>
+                    <div class="row mb-3" style="color: gray">
+                        ● 主力参与比例指近期主力参与股票交易的资金占比程度。<br/>
+                        ● 净流入/涨跌相关性指主力净流入资金与股票涨跌的关系，是一种相关性的计量。
+                    </div>
+                    <div style="width: 100%;height: 800px" id="ability_quota"></div>
+                    <div style="width: 100%;height: 800px" id="ability_trend"></div>
+                    <div class="row mb-3" style="color: gray">
+                        ● 主力控盘能力定义为净流入/涨跌相关性与主力参与比例的比值，值越大控盘能力越强。<br/>
+                        ● 控盘能力越强说明主力用较小的参与资金较好的控制了股票的涨跌；另一方面也反应了多个主力间的一致程度。
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+{% endblock %}
+{% block styles %}
+{% endblock %}
+{% block page_scripts %}
+    <script src="{{ url_for('static',filename='libs/echarts/echarts.js') }}"></script>
+    <script>
+        $.ajax({
+            type: "GET",
+            url: "{{ url_for('stock_prediction.api_money_flow') }}",
+            data: {code: stock, date: date},
+            dataType: "json",
+            success: function (r) {
+                show_today_data(r.today_data);
+                draw_money_flow_chart(r.money_flow_data);
+                draw_money_dist_chart(r.money_dist_data);
+                draw_main_ability_chart(r.main_ability, r.money_flow_data.trade_date)
+            }
+        });
+
+        function show_today_data(data) {
+            var html = "<table style=\"width:100%;font-size: 16px;\">\n" +
+                "                                        <tbody>\n" +
+                "                                        <tr>\n" +
+                "                                            <td style=\"border-right: 2px solid #f4f4f4; width: 25%;padding-left:15px;line-height:25px;\">\n" +
+                "                                                <span style=\"font-size: 20px;font-weight: bold;color: #009ACC\">小单</span><br>流入：<span\n" +
+                "                                                    style=\"color: " + palette.font_up_color + "\">" + data.buy_sm + "万</span> <br>流出：<span style=\"color: " + palette.font_down_color + "\">" + data.sell_sm + "万</span>\n" +
+                "                                                <br>净流入：<span style=\"color: " + ((data.buy_sm - data.sell_sm) > 0 ? palette.font_up_color : palette.font_down_color) + "\">" + (data.buy_sm - data.sell_sm) + "万</span> <br>净占比：<span style=\"color: " + ((data.buy_sm - data.sell_sm) > 0 ? palette.font_up_color : palette.font_down_color) + "\">" + (data.buy_sm - data.sell_sm) / data.amount * 100 + "%</span>\n" +
+                "                                                <br><span style=\"color: orangered\">小单区间：<5万</span>\n" +
+                "                                                <br></td>\n" +
+                "                                            <td style=\"border-right: 2px solid #f4f4f4; width: 25%;padding-left:15px;line-height:25px;\">\n" +
+                "                                                <span style=\"font-size: 20px;font-weight: bold;color: #009ACC\">中单</span><br>流入：<span\n" +
+                "                                                    style=\"color: " + palette.font_up_color + "\">" + data.buy_md + "万</span> <br>流出：<span style=\"color: " + palette.font_down_color + "\">" + data.sell_md + "万</span>\n" +
+                "                                                <br>净流入：<span style=\"color: " + ((data.buy_md - data.sell_md) > 0 ? palette.font_up_color : palette.font_down_color) + "\">" + (data.buy_md - data.sell_md) + "万</span> <br>净占比：<span style=\"color: " + ((data.buy_md - data.sell_md) > 0 ? palette.font_up_color : palette.font_down_color) + "\">" + (data.buy_md - data.sell_md) / data.amount * 100 + "%</span>\n" +
+                "                                                <br><span style=\"color: orangered\">中单区间：5万-20万</span>\n" +
+                "                                                <br></td>\n" +
+                "                                            <td style=\"border-right: 2px solid #f4f4f4; width: 25%;padding-left:15px;line-height:25px;\">\n" +
+                "                                                <span style=\"font-size: 20px;font-weight: bold;color: #009ACC\">大单</span><br>流入：<span\n" +
+                "                                                    style=\"color: " + palette.font_up_color + "\">" + data.buy_lg + "万</span> <br>流出：<span style=\"color: " + palette.font_down_color + "\">" + data.sell_lg + "万</span>\n" +
+                "                                                <br>净流入：<span style=\"color: " + ((data.buy_lg - data.sell_lg) > 0 ? palette.font_up_color : palette.font_down_color) + "\">" + (data.buy_lg - data.sell_lg) + "万</span> <br>净占比：<span style=\"color: " + ((data.buy_lg - data.sell_lg) > 0 ? palette.font_up_color : palette.font_down_color) + "\">" + (data.buy_lg - data.sell_lg) / data.amount * 100 + "%</span>\n" +
+                "                                                <br><span style=\"color: orangered\">大单区间：20万-100万</span>\n" +
+                "                                                <br></td>\n" +
+                "                                            <td style=\"border-right: 2px solid #f4f4f4; width: 25%;padding-left:15px;line-height:25px;\">\n" +
+                "                                                <span style=\"font-size: 20px;font-weight: bold;color: #009ACC\">超大单</span><br>流入：<span\n" +
+                "                                                    style=\"color: " + palette.font_up_color + "\">" + data.buy_elg + "万</span> <br>流出：<span style=\"color: " + palette.font_down_color + "\">" + data.sell_elg + "万</span>\n" +
+                "                                                <br>净流入：<span style=\"color: " + ((data.buy_elg - data.sell_elg) > 0 ? palette.font_up_color : palette.font_down_color) + "\">" + (data.buy_elg - data.sell_elg) + "万</span> <br>净占比：<span style=\"color: " + ((data.buy_elg - data.sell_elg) > 0 ? palette.font_up_color : palette.font_down_color) + "\">" + (data.buy_elg - data.sell_elg) / data.amount * 100 + "%</span>\n" +
+                "                                                <br><span style=\"color: orangered\">超大单区间：>100万</span>\n" +
+                "                                                <br></td>\n" +
+                "                                        </tr>\n" +
+                "                                        </tbody>\n" +
+                "                                    </table>"
+            $("#today_data").html(html)
+        }
+
+        function draw_money_flow_chart(rawData) {
+            function formatVal(val) {
+                if (Math.abs(val) > 10000) {
+                    return (val / 10000).toFixed(2) + '亿';
+                }
+                else
+                    return val.toFixed(0) + '万';
+            }
+
+            var main_net = [];
+            var main_sum = [];
+            var retail_net = [];
+            var retail_sum = [];
+            for (i = 0; i < rawData.main_buy.length; i++) {
+                main_net.push(rawData.main_buy[i] - rawData.main_sell[i]);
+                retail_net.push(rawData.retail_buy[i] - rawData.retail_sell[i]);
+                if (i == 0) {
+                    main_sum.push(rawData.main_buy[i] - rawData.main_sell[i]);
+                    retail_sum.push(rawData.retail_buy[i] - rawData.retail_sell[i])
+                } else {
+                    main_sum.push(main_sum[i - 1] + rawData.main_buy[i] - rawData.main_sell[i]);
+                    retail_sum.push(retail_sum[i - 1] + rawData.retail_buy[i] - rawData.retail_sell[i])
+                }
+            }
+            var main_money_flow = echarts.init(document.getElementById('main_money_flow'));
+            var retail_money_flow = echarts.init(document.getElementById('retail_money_flow'));
+            var main_option = {
+                title: {
+                    text: '{{ stock.name }}：主力资金流向与股票涨跌的关系',
+                },
+                toolbox: {
+                    show: true,
+                    feature: {
+                        restore: {show: true},
+                        saveAsImage: {show: true}
+                    }
+                },
+                tooltip: {
+                    formatter: function (params) {
+                        if (params.seriesName == '主力流入' || params.seriesName == '主力流出') {
+                            if (params.value < 0) {
+                                return params.name + '<br/><span style="display:inline-block;margin-right:5px;border-radius:10px;width:9px;height:9px;background-color:' + params.color + ';"></span>' + params.seriesName + '：' + formatVal(-params.value);
+                            } else {
+                                return params.name + '<br/><span style="display:inline-block;margin-right:5px;border-radius:10px;width:9px;height:9px;background-color:' + params.color + ';"></span>' + params.seriesName + '：' + formatVal(params.value);
+                            }
+                        }
+                        else {
+                            if (params.seriesName == '主力净流入' || params.seriesName == '主力净流入累加') {
+                                return params.name + '<br/><span style="display:inline-block;margin-right:5px;border-radius:10px;width:9px;height:9px;background-color:' + params.color + ';"></span>' + params.seriesName + '：' + formatVal(params.value);
+                            }
+                            else if (params.seriesName == '涨跌幅') {
+                                return params.name + '<br/><span style="display:inline-block;margin-right:5px;border-radius:10px;width:9px;height:9px;background-color:' + params.color + ';"></span>' + params.seriesName + '：' + params.value + '%';
+                            }
+                        }
+                    }
+                },
+                legend: {
+                    top: 70,
+                    data: ['主力流入', '主力流出', '主力净流入', '涨跌幅', '主力净流入累加']
+                },
+                grid: {
+                    top: 120,
+                    left: '10',
+                    right: '20',
+                    bottom: '80',
+                    containLabel: true
+                },
+                xAxis: {
+                    name: '交易日',
+                    silent: false,
+                    type: 'category',
+                    axisLabel: {interval: 0, rotate: -90},
+                    data: rawData.trade_date
+
+                },
+                yAxis: [{
+                    name: '资金量(万)',
+                    axisLabel: {
+                        formatter: function (value) {
+                            if (value < 0) {
+                                return -value
+                            } else {
+                                return value
+                            }
+                        }
+                    }
+                },
+                    {
+                        name: '涨跌幅(%)',
+                        position: 'right',
+                        min: -10,
+                        max: 10,
+                        splitLine: {
+                            show: false
+                        },
+                        axisLabel: {
+                            formatter: '{value} %'
+                        },
+                        splitArea: {
+                            show: false
+                        }
+                    }
+
+                ],
+                series: [
+                    {
+                        name: '主力流入',
+                        type: 'bar',
+                        stack: 'one',
+                        itemStyle: {
+                            normal: {
+                                color: '#cd5e63'
+                            }
+                        },
+                        data: rawData.main_buy
+                    },
+                    {
+                        name: '主力流出',
+                        type: 'bar',
+                        stack: 'one',
+                        itemStyle: {
+                            normal: {
+                                color: '#1ab394'
+                            }
+                        },
+                        data: rawData.main_sell
+                    },
+                    {
+                        name: '主力净流入',
+                        type: 'line',
+                        symbolSize: 10,
+                        itemStyle: {
+                            normal: {
+                                color: '#3399cc'
+                            }
+                        },
+                        lineStyle: {
+                            normal: {
+                                width: 2,
+                                shadowColor: 'rgba(0,0,0,0.4)',
+                                shadowBlur: 10,
+                                shadowOffsetY: 10
+                            }
+                        },
+                        data: main_net
+                    },
+                    {
+                        name: '涨跌幅',
+                        type: 'line',
+                        symbolSize: 8,
+                        yAxisIndex: 1,
+                        itemStyle: {
+                            normal: {
+                                color: '#ffcc33'
+                            }
+                        },
+                        lineStyle: {
+                            normal: {
+                                width: 2,
+                                shadowColor: 'rgba(0,0,0,0.4)',
+                                shadowBlur: 10,
+                                shadowOffsetY: 10
+                            }
+                        },
+                        data: rawData.pct_chg
+                    },
+                    {
+                        name: '主力净流入累加',
+                        type: 'line',
+                        symbolSize: 10,
+                        itemStyle: {
+                            normal: {
+                                color: '#333300'
+                            }
+                        },
+                        lineStyle: {
+                            normal: {
+                                width: 2,
+                                shadowColor: 'rgba(0,0,0,0.4)',
+                                shadowBlur: 10,
+                                shadowOffsetY: 10
+                            }
+                        },
+                        data: main_sum
+                    }
+
+                ]
+            };
+            var retail_option = {
+                title: {
+                    text: '{{ stock.name }}：散户资金流向与股票涨跌的关系',
+                },
+                toolbox: {
+                    show: true,
+                    feature: {
+                        restore: {show: true},
+                        saveAsImage: {show: true}
+                    }
+                },
+                tooltip: {
+                    formatter: function (params) {
+                        if (params.seriesName == '散户流入' || params.seriesName == '散户流出') {
+                            if (params.value < 0) {
+                                return params.name + '<br/><span style="display:inline-block;margin-right:5px;border-radius:10px;width:9px;height:9px;background-color:' + params.color + ';"></span>' + params.seriesName + '：' + formatVal(-params.value);
+                            } else {
+                                return params.name + '<br/><span style="display:inline-block;margin-right:5px;border-radius:10px;width:9px;height:9px;background-color:' + params.color + ';"></span>' + params.seriesName + '：' + formatVal(params.value);
+                            }
+                        }
+                        else {
+                            if (params.seriesName == '散户净流入' || params.seriesName == '散户净流入累加') {
+                                return params.name + '<br/><span style="display:inline-block;margin-right:5px;border-radius:10px;width:9px;height:9px;background-color:' + params.color + ';"></span>' + params.seriesName + '：' + formatVal(params.value);
+                            }
+                            else if (params.seriesName == '涨跌幅') {
+                                return params.name + '<br/><span style="display:inline-block;margin-right:5px;border-radius:10px;width:9px;height:9px;background-color:' + params.color + ';"></span>' + params.seriesName + '：' + params.value + '%';
+                            }
+                        }
+                    }
+                },
+                legend: {
+                    top: 70,
+                    data: ['散户流入', '散户流出', '散户净流入', '涨跌幅', '散户净流入累加']
+                },
+                grid: {
+                    top: 120,
+                    left: '10',
+                    right: '20',
+                    bottom: '80',
+                    containLabel: true
+                },
+                xAxis: {
+                    name: '交易日',
+                    silent: false,
+                    type: 'category',
+                    axisLabel: {interval: 0, rotate: -90},
+                    data: rawData.trade_date
+
+                },
+                yAxis: [{
+                    name: '资金量(万)',
+                    axisLabel: {
+                        formatter: function (value) {
+                            if (value < 0) {
+                                return -value
+                            } else {
+                                return value
+                            }
+                        }
+                    }
+                },
+                    {
+                        name: '涨跌幅(%)',
+                        position: 'right',
+                        min: -10,
+                        max: 10,
+                        splitLine: {
+                            show: false
+                        },
+                        axisLabel: {
+                            formatter: '{value} %'
+                        },
+                        splitArea: {
+                            show: false
+                        }
+                    }
+
+                ],
+                series: [
+                    {
+                        name: '散户流入',
+                        type: 'bar',
+                        stack: 'one',
+                        itemStyle: {
+                            normal: {
+                                color: '#cd5e63'
+                            }
+                        },
+                        data: rawData.retail_buy
+                    },
+                    {
+                        name: '散户流出',
+                        type: 'bar',
+                        stack: 'one',
+                        itemStyle: {
+                            normal: {
+                                color: '#1ab394'
+                            }
+                        },
+                        data: rawData.retail_sell
+                    },
+                    {
+                        name: '散户净流入',
+                        type: 'line',
+                        symbolSize: 10,
+                        itemStyle: {
+                            normal: {
+                                color: '#3399cc'
+                            }
+                        },
+                        lineStyle: {
+                            normal: {
+                                width: 2,
+                                shadowColor: 'rgba(0,0,0,0.4)',
+                                shadowBlur: 10,
+                                shadowOffsetY: 10
+                            }
+                        },
+                        data: retail_net
+                    },
+                    {
+                        name: '涨跌幅',
+                        type: 'line',
+                        symbolSize: 8,
+                        yAxisIndex: 1,
+                        itemStyle: {
+                            normal: {
+                                color: '#ffcc33'
+                            }
+                        },
+                        lineStyle: {
+                            normal: {
+                                width: 2,
+                                shadowColor: 'rgba(0,0,0,0.4)',
+                                shadowBlur: 10,
+                                shadowOffsetY: 10
+                            }
+                        },
+                        data: rawData.pct_chg
+                    },
+                    {
+                        name: '散户净流入累加',
+                        type: 'line',
+                        symbolSize: 10,
+                        itemStyle: {
+                            normal: {
+                                color: '#333300'
+                            }
+                        },
+                        lineStyle: {
+                            normal: {
+                                width: 2,
+                                shadowColor: 'rgba(0,0,0,0.4)',
+                                shadowBlur: 10,
+                                shadowOffsetY: 10
+                            }
+                        },
+                        data: retail_sum
+                    }
+
+                ]
+            };
+            main_money_flow.setOption(main_option)
+            retail_money_flow.setOption(retail_option)
+        }
+
+        function draw_money_dist_chart(rawData) {
+            function formatVal(val) {
+                if (Math.abs(val) > 10000) {
+                    return (val / 10000).toFixed(2) + '亿';
+                }
+                else
+                    return val.toFixed(0) + '万';
+            }
+
+            function splitData(rawData) {
+                var categoryData = [];
+                var categoryData_5 = [];
+                var sm = [];
+                var sm_5 = [];
+                var md = [];
+                var md_5 = [];
+                var lg = [];
+                var lg_5 = [];
+                var elg = [];
+                var elg_5 = [];
+                var sm_sum = 0;
+                var md_sum = 0;
+                var lg_sum = 0;
+                var elg_sum = 0;
+                var sm_5_sum = 0;
+                var md_5_sum = 0;
+                var lg_5_sum = 0;
+                var elg_5_sum = 0;
+
+                for (var i = 0; i < rawData.length; i++) {
+                    categoryData.push(rawData[i].splice(0, 1)[0]);
+                    sm.push(rawData[i].splice(0, 1)[0]);
+                    md.push(rawData[i].splice(0, 1)[0]);
+                    lg.push(rawData[i].splice(0, 1)[0]);
+                    elg.push(rawData[i]);
+                    sm_sum += sm[i];
+                    md_sum += md[i];
+                    lg_sum += lg[i];
+                    elg_sum += elg[i];
+                    if (i > rawData.length - 6) {
+                        categoryData_5.push(categoryData[i]);
+                        sm_5.push(sm[i]);
+                        md_5.push(md[i]);
+                        lg_5.push(lg[i]);
+                        elg_5.push(elg[i]);
+                        sm_5_sum += sm[i];
+                        md_5_sum += md[i];
+                        lg_5_sum += lg[i];
+                        elg_5_sum += elg[i]
+                    }
+                }
+                return {
+                    "categoryData": categoryData,
+                    "categoryData_5": categoryData_5,
+                    "sm": sm,
+                    "sm_5": sm_5,
+                    "md": md,
+                    "md_5": md_5,
+                    "lg": lg,
+                    "lg_5": lg_5,
+                    "elg": elg,
+                    "elg_5": elg_5,
+                    "sm_sum": sm_sum,
+                    "md_sum": md_sum,
+                    "lg_sum": lg_sum,
+                    "elg_sum": elg_sum,
+                    "sm_5_sum": sm_5_sum,
+                    "md_5_sum": md_5_sum,
+                    "lg_5_sum": lg_5_sum,
+                    "elg_5_sum": elg_5_sum
+                };
+            }
+
+            var money_dist_5 = echarts.init(document.getElementById('money_dist_5'));
+            var money_dist_20 = echarts.init(document.getElementById('money_dist_20'));
+            var data = splitData(rawData);
+            var money_dist_5_option = {
+                title: [{
+                    text: '{{ stock.name }}：一周(5日)资金来源分布图',
+                }, {
+                    text: '5日资金量占比',
+                    left: '83%',
+                    top: '26%',
+                    textAlign: 'center',
+                    textStyle: {
+                        color: '#ff733f'
+                    }
+                }],
+                toolbox: {
+                    show: true,
+                    feature: {
+                        restore: {show: true},
+                        saveAsImage: {show: true}
+                    }
+                },
+                tooltip: {
+                    formatter: function (params) {
+
+                        if (params.seriesName == '小单' || params.seriesName == '中单' || params.seriesName == '大单' || params.seriesName == '超大单') {
+                            if (params.value < 0) {
+                                return params.name + '<br/><span style="display:inline-block;margin-right:5px;border-radius:10px;width:9px;height:9px;background-color:' + params.color + ';"></span>' + params.seriesName + '：' + formatVal(-params.value);
+                            } else {
+                                return params.name + '<br/><span style="display:inline-block;margin-right:5px;border-radius:10px;width:9px;height:9px;background-color:' + params.color + ';"></span>' + params.seriesName + '：' + formatVal(params.value);
+                            }
+                        }
+                        else {
+                            return '<span style="display:inline-block;margin-right:5px;border-radius:10px;width:9px;height:9px;background-color:' + params.color + ';"></span>' + params.name + '总量：' + formatVal(params.value) + '(' + params.percent + '%)';
+                            ;
+                        }
+                    }
+                },
+                legend: {
+                    top: 70,
+                    data: ['超大单', '大单', '中单', '小单']
+                },
+                grid: {
+                    left: '10',
+                    right: '35%',
+                    top: '120',
+                    bottom: '15',
+                    containLabel: true
+                },
+                xAxis: {
+                    type: 'value'
+                },
+                yAxis: {
+                    type: 'category',
+                    data: data.categoryData_5
+                },
+                series: [
+                    {
+                        name: '超大单',
+                        type: 'bar',
+                        stack: '总量',
+                        data: data.elg_5
+                    },
+                    {
+                        name: '大单',
+                        type: 'bar',
+                        stack: '总量',
+                        data: data.lg_5
+                    },
+                    {
+                        name: '中单',
+                        type: 'bar',
+                        stack: '总量',
+                        data: data.md_5
+                    },
+                    {
+                        name: '小单',
+                        type: 'bar',
+                        stack: '总量',
+                        data: data.sm_5
+                    },
+                    {
+                        type: 'pie',
+                        center: ['83%', '53%'],
+                        radius: ['20%', '30%'],
+                        data: [
+                            {value: data.elg_5_sum, name: '超大单'},
+                            {value: data.lg_5_sum, name: '大单'},
+                            {value: data.md_5_sum, name: '中单'},
+                            {value: data.sm_5_sum, name: '小单'}
+                        ]
+                    },
+                ]
+            };
+            var money_dist_20_option = {
+                title: [{
+                    text: '{{ stock.name }}：一月(20日)资金来源分布图',
+                }, {
+                    text: '20日资金量占比',
+                    left: '75%',
+                    top: '30%',
+                    textAlign: 'center',
+                    textStyle: {
+                        color: '#ff733f'
+                    }
+                }],
+                toolbox: {
+                    show: true,
+                    feature: {
+                        restore: {show: true},
+                        saveAsImage: {show: true}
+                    }
+                },
+                tooltip: {
+                    formatter: function (params) {
+
+                        if (params.seriesName == '小单' || params.seriesName == '中单' || params.seriesName == '大单' || params.seriesName == '超大单') {
+                            if (params.value < 0) {
+                                return params.name + '<br/><span style="display:inline-block;margin-right:5px;border-radius:10px;width:9px;height:9px;background-color:' + params.color + ';"></span>' + params.seriesName + '：' + formatVal(-params.value);
+                            } else {
+                                return params.name + '<br/><span style="display:inline-block;margin-right:5px;border-radius:10px;width:9px;height:9px;background-color:' + params.color + ';"></span>' + params.seriesName + '：' + formatVal(params.value);
+                            }
+                        }
+                        else {
+                            return '<span style="display:inline-block;margin-right:5px;border-radius:10px;width:9px;height:9px;background-color:' + params.color + ';"></span>' + params.name + '总量：' + formatVal(params.value) + '(' + params.percent + '%)';
+                            ;
+                        }
+                    }
+                },
+                legend: {
+                    top: 70,
+                    data: ['超大单', '大单', '中单', '小单']
+                },
+                grid: {
+                    left: '10',
+                    right: '35%',
+                    top: '120',
+                    bottom: '15',
+                    containLabel: true
+                },
+                xAxis: {
+                    type: 'value'
+                },
+                yAxis: {
+                    type: 'category',
+                    data: data.categoryData
+                },
+                series: [
+                    {
+                        name: '超大单',
+                        type: 'bar',
+                        stack: '总量',
+                        data: data.elg
+                    },
+                    {
+                        name: '大单',
+                        type: 'bar',
+                        stack: '总量',
+                        data: data.lg
+                    },
+                    {
+                        name: '中单',
+                        type: 'bar',
+                        stack: '总量',
+                        data: data.md
+                    },
+                    {
+                        name: '小单',
+                        type: 'bar',
+                        stack: '总量',
+                        data: data.sm
+                    },
+                    {
+                        type: 'pie',
+                        center: ['75%', '53%'],
+                        radius: ['20%', '30%'],
+                        data: [
+                            {value: data.elg_sum, name: '超大单'},
+                            {value: data.lg_sum, name: '大单'},
+                            {value: data.md_sum, name: '中单'},
+                            {value: data.sm_sum, name: '小单'}
+                        ]
+                    },
+                ]
+            };
+            money_dist_5.setOption(money_dist_5_option);
+            money_dist_20.setOption(money_dist_20_option)
+        }
+
+        function draw_main_ability_chart(rawData, trade_date) {
+            var today_main_ability = echarts.init(document.getElementById('today_main_ability'));
+            var ability_quota = echarts.init(document.getElementById('ability_quota'));
+            var ability_trend = echarts.init(document.getElementById('ability_trend'));
+            var data = [];
+            for (i = 0; i < rawData.scale_list.length; i++) {
+                data.push(rawData.corr_list[i] / rawData.scale_list[i])
+            }
+            var today_main_ability_option = {
+                tooltip: {
+                    formatter: "{a}：{c}%"
+                },
+                title: [{
+                    text: '{{ stock.name }}：今日主力控盘能力指标',
+                }
+                ],
+                toolbox: {
+                    show: true,
+                    feature: {
+                        restore: {show: true},
+                        saveAsImage: {show: true}
+                    }
+                },
+                series: [
+                    {
+                        name: '主力参与比例',
+                        type: 'gauge',
+                        center: ['25%', '55%'],
+                        radius: '75%',
+                        min: 0,
+                        max: 100,
+                        splitNumber: 10,
+                        axisLine: {
+                            lineStyle: {
+                                width: 8
+                            }
+                        },
+                        axisTick: {
+                            length: 12,
+                            lineStyle: {
+                                color: 'auto'
+                            }
+                        },
+                        splitLine: {
+                            length: 20,
+                            lineStyle: {
+                                color: 'auto'
+                            }
+                        },
+                        pointer: {
+                            width: 5
+                        },
+                        title: {
+                            offsetCenter: [0, '-30%'],
+                            fontWeight: 'bolder',
+                            fontSize: 16
+                        },
+                        detail: {
+                            fontWeight: 'bolder',
+                            formatter: function (value) {
+                                return '  ' + value.toFixed(2) + '%';
+                            }
+                        },
+                        data: [{value: rawData.scale * 100, name: '主力参与比例'}]
+                    },
+                    {
+                        name: '净流入/涨跌的相关性',
+                        type: 'gauge',
+                        center: ['75%', '55%'],
+                        radius: '75%',
+                        min: 0,
+                        max: 100,
+                        splitNumber: 10,
+                        axisLine: {
+                            lineStyle: {
+                                width: 8
+                            }
+                        },
+                        axisTick: {
+                            length: 12,
+                            lineStyle: {
+                                color: 'auto'
+                            }
+                        },
+                        splitLine: {
+                            length: 20,
+                            lineStyle: {
+                                color: 'auto'
+                            }
+                        },
+                        axisLabel: {
+                            fontSize: 16,
+                            formatter: function (v) {
+                                switch (v + '') {
+                                    case '10':
+                                        return '极低';
+                                    case '30':
+                                        return '低';
+                                    case '70':
+                                        return '中';
+                                    case '90':
+                                        return '高';
+                                }
+                            }
+                        },
+                        pointer: {
+                            width: 5
+                        },
+                        title: {
+                            offsetCenter: [0, '-30%'],
+                            fontWeight: 'bolder',
+                            fontSize: 14
+                        },
+                        detail: {
+                            fontWeight: 'bolder',
+
+                            formatter: function (value) {
+                                return '  ' + value.toFixed(2) + '%';
+                            }
+                        },
+                        data: [{value: rawData.corr * 100, name: '净流入/涨跌\n相关性'}]
+                    }
+
+                ]
+            };
+            var ability_quota_option = {
+                title: {
+                    text: '{{ stock.name }}：主力控盘能力指标曲线',
+                },
+                toolbox: {
+                    show: true,
+                    feature: {
+                        magicType: {show: true, type: ['line', 'bar']},
+                        restore: {show: true},
+                        saveAsImage: {show: true}
+                    }
+                },
+                tooltip: {
+                    trigger: 'axis'
+                },
+                legend: {
+                    top: 70,
+                    data: ['主力参与比例', '净流入/涨跌相关性']
+                },
+                grid: {
+                    top: 120,
+                    left: '20',
+                    right: '30',
+                    bottom: '60',
+                    containLabel: true
+                },
+                xAxis: [
+                    {
+                        type: 'category',
+                        boundaryGap: false,
+                        axisLabel: {interval: 0, rotate: -90},
+                        data: trade_date
+                    }
+                ],
+                yAxis: [
+                    {
+                        name: '主力参与比例(%)',
+                        type: 'value',
+                        max: 100
+                    },
+                    {
+                        name: '净流入/涨跌相关性(%)',
+                        type: 'value',
+                        max: 100
+                    }
+                ],
+                series: [
+                    {
+                        name: '主力参与比例',
+                        type: 'line',
+                        symbolSize: 10,
+                        smooth: true,
+                        itemStyle: {
+                            normal: {
+                                color: 'rgba(2, 197, 233, 0.2)',
+                                lineStyle: {
+                                    color: 'rgba(2, 197, 233, 0.2)'
+                                },
+                                areaStyle: {
+                                    color: 'rgba(2, 197, 233, 0.2)'
+                                }
+                            }
+                        },
+                        data: rawData.scale_list
+                    },
+                    {
+                        name: '净流入/涨跌相关性',
+                        type: 'line',
+                        symbolSize: 10,
+
+                        yAxisIndex: 1,
+                        smooth: true,
+                        itemStyle: {
+                            normal: {
+                                color: 'rgba(230, 107, 233, 0.2)',
+                                lineStyle: {
+                                    color: 'rgba(230, 107, 203, 0.2)'
+                                },
+                                areaStyle: {
+                                    color: 'rgba(223, 147, 233, 0.2)'
+                                }
+                            }
+                        },
+                        data: rawData.corr_list
+                    }
+                ]
+            };
+            var ability_trend_option = {
+                title: {
+                    text: '{{ stock.name }}：主力控盘能力走势图',
+                },
+                toolbox: {
+                    show: true,
+                    feature: {
+                        magicType: {show: true, type: ['line', 'bar']},
+                        restore: {show: true},
+                        saveAsImage: {show: true}
+                    }
+                },
+                tooltip: {
+                    trigger: 'item',
+                    axisPointer: {            // 坐标轴指示器，坐标轴触发有效
+                        type: 'shadow'        // 默认为直线，可选为：'line' | 'shadow'
+                    },
+                    formatter: function (params) {
+                        var res = params.name + '<br/> ' + ' 主力控盘能力：' + params.value;
+                        return res;
+                    }
+                },
+
+                grid: {
+                    top: 100,
+                    left: '10',
+                    right: '10',
+                    bottom: '100',
+                    containLabel: true
+                },
+                xAxis: {
+                    type: 'category',
+                    boundaryGap: false,
+                    axisLabel: {interval: 0, rotate: -90},
+                    data: trade_date
+                },
+                yAxis: {
+                    type: 'value',
+                    name: '主力控盘能力',
+                    min: 0,
+                    max: 3
+                },
+                series: [
+                    {
+                        name: '主力控盘能力',
+                        type: 'line',
+                        symbolSize: 10,
+                        itemStyle: {
+                            normal: {
+                                color: '#3399cc'
+                            }
+                        },
+                        lineStyle: {
+                            normal: {
+                                width: 2,
+                                shadowColor: 'rgba(0,0,0,0.4)',
+                                shadowBlur: 10,
+                                shadowOffsetY: 10
+                            }
+                        },
+                        data: data
+                    }
+                ]
+            };
+            today_main_ability.setOption(today_main_ability_option);
+            ability_quota.setOption(ability_quota_option)
+            ability_trend.setOption(ability_trend_option)
+        }
+    </script>
+{% endblock %}

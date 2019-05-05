@@ -1,0 +1,128 @@
+{% extends "stock_recommendation/stock_sorting/stock_sorting_base.html" %}
+{% block pagetitle %}
+    <div class="page-title-alt-bg"></div>
+    <div class="page-title-box">
+        <ol class="breadcrumb float-right">
+            <li class="breadcrumb-item"><a href="javascript:void(0);">个股排序</a></li>
+            <li class="breadcrumb-item"><a href="javascript:void(0);">股票估值排序</a></li>
+            <li class="breadcrumb-item active">基于相似收益的股票估值排序</li>
+        </ol>
+        <h4 class="page-title">基于相似收益的股票估值排序</h4>
+        <div class="pb-1">根据股票滚动市盈率与自身历史相似每股收益条件下的PE均值的偏离程度排序。</div>
+    </div>
+{% endblock %}
+{% block page_nav %}
+    <div class="row" id="trend_prediction_sorting_navigation">
+        <a href="{{ url_for('stock_recommendation.similarity_eps_sorting') }}" class="ml-1 mr-1 btn btn-primary" style="color: white;font-size: 18px;font-weight: bold">基于相似收益</a>
+        <a href="{{ url_for('stock_recommendation.industry_mean_sorting') }}" class="ml-1 mr-1 btn btn-secondary" style="color: white;font-size: 18px;font-weight: bold">基于行业均值</a>
+        <a href="{{ url_for('stock_recommendation.industry_pe_sorting') }}" class="ml-1 mr-1 btn btn-secondary" style="color: white;font-size: 18px;font-weight: bold">各行业平均PE及前3</a>
+    </div>
+{% endblock %}
+{% block page_container %}
+    <div class="row">
+        <div class="col-2 pl-5">
+            <div class="row">
+                <div class="nav flex-column nav-pills nav-pills-tab" id="v-pills-tab" role="tablist"
+                     aria-orientation="vertical">
+                    {% for day in date_list %}
+                        {% if day==date %}
+                            <a class="nav-link active mb-2"
+                               href="{{ url_for('stock_recommendation.similarity_eps_sorting',date=day) }}">
+                                {{ "%s/%s/%s"|format(day[0:4],day[4:6],day[6:8]) }}
+                            </a>
+                        {% else %}
+                            <a class="nav-link mb-2"
+                               href="{{ url_for('stock_recommendation.similarity_eps_sorting',date=day) }}">
+                                {{ "%s/%s/%s"|format(day[0:4],day[4:6],day[6:8]) }}
+                            </a>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+            </div> <!-- end row-->
+        </div>
+        <div class="col-10">
+            <div class="row" id="table">
+            </div>
+            <div class="row">
+                <p>- 将股票与相关股票在相关日期之前的一段走势的相关性按从大到小排序。<br/>- <span style="color: #FF0000">红色线</span>代表源股票近20天的走势，<span
+                style="color: #5eafcd">蓝色线</span>代表相关股票在相关日期前后各20天的走势。<br/>- 相关股票相关日期后的走势可以作为该股票未来走势的一种参考。<br/>-
+            正相关走势可直接参考，负相关走势则需要反过来看待。<br/></p>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+{% block scripts %}
+    <script src="{{ url_for('static',filename='libs/sparkline/jquery.sparkline.min.js') }}"></script>
+    <script>
+        var date = "{{ date }}"
+    </script>
+    <script>
+        $.ajax({
+            type: "GET",
+            url: "{{ url_for('stock_recommendation.api_similarity_eps_sorting') }}",
+            data: {date: '20181101'},
+            dataType: "json",
+            success: function (r) {
+                show_table(r)
+            }
+        });
+        function show_table(data) {
+            var html="<table class=\"table table-hover fullwidth\" style=\"table-layout: fixed; text-align: center;\">\n" +
+                "                <thead>\n" +
+                "                <tr>\n" +
+                "                    <th style=\"width: 50px;\">#</th>\n" +
+                "                    <th style=\"width: 100px;\">股票名称</th>\n" +
+                "                    <th style=\"width: 110px;\">滚动市盈率</th>\n" +
+                "                    <th style=\"width: 110px;\">历史PE均值</th>\n" +
+                "                    <th style=\"width: 110px;\">历史PE方差</th>\n" +
+                "                    <th style=\"width: 130px;\">收盘价:估值价</th>\n" +
+                "                    <th style=\"border-left:#cd5e63 2px solid;border-right:#cd5e63 2px solid;border-top:#cd5e63 2px solid;width:100px\">PE偏离度\n" +
+                "                    <th style=\"width: 80px;\">换手率</th>\n" +
+                "                    <th>近30天走势及高低点</th>\n" +
+                "                </tr>\n" +
+                "                </thead>\n" +
+                "                <tbody>"
+            for(var i=0;i<data.length;i++){
+                if(i!=data.length-1){
+                                    html+="<tr>\n" +
+                    "                    <td style=\"vertical-align: middle;\">"+(i+1)+"</td>\n" +
+                    "                    <td style=\"vertical-align: middle;\"><a target=\"_blank\">"+data[i].name+"<br/>("+data[i].symbol+")</a></td>\n" +
+                    "                    <td style=\"vertical-align: middle;\">"+data[i].pe_ttm+"</td>\n" +
+                    "                    <td style=\"vertical-align: middle;\">"+data[i].pe_mean+"</td>\n" +
+                    "                    <td style=\"vertical-align: middle;\">"+data[i].pe_std+"</td>\n" +
+                    "                    <td style=\"vertical-align: middle;\"><span style=\"color:"+(data[i].close<data[i].estimated_value?palette.font_down_color:palette.font_up_color)+"\">"+data[i].close+"</span>:<span style=\"color:"+(data[i].close>data[i].estimated_value?palette.font_down_color:palette.font_up_color)+"\">"+data[i].estimated_value+"</span></td>\n" +
+                    "                    <td style=\"border-left:#cd5e63 2px solid;border-right:#cd5e63 2px solid;vertical-align: middle;\">"+data[i].scale.toFixed(2)+"</td>\n" +
+                    "                    <td style=\"vertical-align: middle;\">"+data[i].turnover_rate+"%</td>\n" +
+                    "                    <td><span class=\"sparkslim\">"+data[i].stock_bar+"</span>\n" +
+                    "                    </td>\n" +
+                    "                </tr>"
+                }else {
+                                    html+="<tr>\n" +
+                    "                    <td style=\"vertical-align: middle;\">"+(i+1)+"</td>\n" +
+                    "                    <td style=\"vertical-align: middle;\"><a target=\"_blank\">"+data[i].name+"<br/>("+data[i].symbol+")</a></td>\n" +
+                    "                    <td style=\"vertical-align: middle;\">"+data[i].pe_ttm+"</td>\n" +
+                    "                    <td style=\"vertical-align: middle;\">"+data[i].pe_mean+"</td>\n" +
+                    "                    <td style=\"vertical-align: middle;\">"+data[i].pe_std+"</td>\n" +
+                    "                    <td style=\"vertical-align: middle;\"><span style=\"color:"+(data[i].close<data[i].estimated_value?palette.font_down_color:palette.font_up_color)+"\">"+data[i].close+"</span>:<span style=\"color:"+(data[i].close>data[i].estimated_value?palette.font_down_color:palette.font_up_color)+"\">"+data[i].estimated_value+"</span></td>\n" +
+                    "                    <td style=\"border-left:#cd5e63 2px solid;border-right:#cd5e63 2px solid;border-bottom:#cd5e63 2px solid;vertical-align: middle;\">"+data[i].scale.toFixed(2)+"</td>\n" +
+                    "                    <td style=\"vertical-align: middle;\">"+data[i].turnover_rate+"%</td>\n" +
+                    "                    <td><span class=\"sparkslim\">"+data[i].stock_bar+"</span>\n" +
+                    "                    </td>\n" +
+                    "                </tr>"
+                }
+            }
+            html+="</tbody></table>"
+            $("#table").html(html)
+            $(".sparkslim").sparkline('html', {
+                type: "line",
+                width: "100%",
+                height: "40",
+                spotColor: false,
+                spotRadius: 3,
+                lineColor: "#adadad",
+                fillColor: "#f4fce1"
+            });
+        }
+
+    </script>
+{% endblock %}

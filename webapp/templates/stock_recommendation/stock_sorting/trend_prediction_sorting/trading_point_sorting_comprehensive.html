@@ -1,0 +1,323 @@
+{% extends "stock_recommendation/stock_sorting/trend_prediction_sorting/trend_prediction_sorting_base.html" %}
+
+{% block pagetitle %}
+    <div class="page-title-alt-bg"></div>
+    <div class="page-title-box">
+        <ol class="breadcrumb float-right">
+            <li class="breadcrumb-item"><a href="javascript:void(0);">个股排序</a></li>
+            <li class="breadcrumb-item"><a href="javascript:void(0);">走势预测排序</a></li>
+            <li class="breadcrumb-item active">买点统计排序</li>
+        </ol>
+        <h4 class="page-title">买点统计排序</h4>
+        <div class="pb-1">根据每只股票当日是否出现买点及和最近卖点的距离进行排序。</div>
+    </div>
+{% endblock %}
+
+{% block page_container %}
+    <div class="row">
+        <div class="col-2 pl-5">
+            <div class="row">
+                <div class="nav flex-column nav-pills nav-pills-tab" id="v-pills-tab" role="tablist"
+                     aria-orientation="vertical">
+                    {% for day in date_list %}
+                        {% if day==date %}
+                            <a class="nav-link active mb-2"
+                               href="{{ url_for('stock_recommendation.trading_point_sorting',mode=0,date=day) }}">
+                                {{ "%s/%s/%s"|format(day[0:4],day[4:6],day[6:8]) }}
+                            </a>
+                        {% else %}
+                            <a class="nav-link mb-2"
+                               href="{{ url_for('stock_recommendation.trading_point_sorting',mode=0,date=day) }}">
+                                {{ "%s/%s/%s"|format(day[0:4],day[4:6],day[6:8]) }}
+                            </a>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+            </div> <!-- end row-->
+        </div>
+        <div class="col-10">
+            <div class="text-right">
+                <a href="{{ url_for('stock_recommendation.trading_point_sorting',mode=0,date=date) }}" class="btn"
+                   style="color: black;background-color: #DDDDDD">积极方式</a>
+                <a href="{{ url_for('stock_recommendation.trading_point_sorting',mode=1,date=date) }}" class="btn"
+                   style="color: black;background-color: #DDDDDD">稳健方式</a>
+                <a href="{{ url_for('stock_recommendation.trading_point_sorting',mode=2,date=date) }}"
+                   class="btn btn-info" style="color: white">综合展示</a>
+            </div>
+            <div class="row">
+                <div style="width: 100%;height: 600px;" id="chart"></div>
+            </div>
+            <div class="row pr-4" style="color: red">
+                注：上图为积极和稳健两种方式的叠加。两横虚线分别为近期的买点数平均值(红色)和卖点数(绿色)平均值。当买点数显著大于卖点数或平均数时，为入市时机；反之，则为离市时机。
+            </div>
+            <div class="row">
+                <h4>两种方式下出现买点的股票:</h4>
+            </div>
+            <div class="row" id="table">
+            </div>
+            <div class="row"><p>- 以上所列股票为当日出现买点的股票。<br/>- 买点可作为买入该股票择时的一种参考。<br/></p></div>
+
+        </div>
+    </div>
+{% endblock %}
+{% block page_scripts %}
+    <script src="{{ url_for('static',filename='libs/echarts/echarts.js') }}"></script>
+    <script>
+        $.ajax({
+            type: "GET",
+            url: "{{ url_for('stock_recommendation.api_trading_point_sorting_comprehensive') }}",
+            data: {date: '20181101'},
+            dataType: "json",
+            success: function (r) {
+                draw_chart(r.chart)
+                show_table(r.table)
+            }
+        });
+
+        function draw_chart(rawData) {
+            var myChart = echarts.init(document.getElementById('chart'));
+            for (var i = rawData.category.length; i > rawData.category.length - 3; i--) {
+                rawData.category[i - 1] = {value: rawData.category[i - 1], textStyle: {fontSize: 12, color: 'red'}}
+            }
+            $("#buy_count").html(rawData.buy[rawData.buy.length - 1]);
+            var chart_option = {
+                title: {
+                    text: '综合买卖点数量走势',
+                },
+                tooltip: {
+                    trigger: 'axis'
+                },
+                legend: {
+                    top: 50,
+                    data: ['买点数', '卖点数']
+                },
+                grid: {
+                    top: 80,
+                    left: '0',
+                    right: '40',
+                    bottom: '60',
+                    containLabel: true
+                },
+                calculable: true,
+                xAxis: [
+                    {
+                        type: 'category',
+                        axisLabel: {interval: 0, rotate: -90},
+                        data: rawData.category
+                    }
+                ],
+                yAxis: [
+                    {
+                        type: 'value'
+                    }
+                ],
+                color: ['#cd5e63', '#1ab394'],
+                series: [
+                    {
+                        name: '买点数',
+                        type: 'line',
+                        data: rawData.buy,
+                        markPoint: {
+                            data: [
+                                {type: 'max', name: '最大值'},
+                                {name: '今日', coord: [rawData.category[rawData.category.length - 1]]}
+                            ]
+                        },
+                        markLine: {
+                            precision: 0,
+                            data: [
+                                {type: 'average', name: '平均值'}
+                            ]
+                        }
+                    },
+                    {
+                        name: '卖点数',
+                        type: 'line',
+                        data: rawData.sell,
+                        markPoint: {
+                            data: [
+                                {type: 'max', name: '最大值'},
+                                {name: '今日', coord: [rawData.category[rawData.category.length - 1]]}
+                            ]
+                        },
+                        markLine: {
+                            precision: 0,
+                            data: [
+                                {type: 'average', name: '平均值'}
+                            ]
+                        }
+                    }
+                ]
+            };
+            myChart.setOption(chart_option);
+        }
+
+        function show_table(data) {
+            var html = "<table class=\"table\" style=\"text-align: center\">\n" +
+                "                    <thead>\n" +
+                "                    <tr>\n" +
+                "                        <th style=\"color: #FF0000; font-size: 16px\">股票(积极方式)</th>\n" +
+                "                        <th>涨幅</th>\n" +
+                "                        <th>换手率</th>\n" +
+                "                        <th style=\"border-left: #cd5e63 2px solid;border-right: #cd5e63 2px solid;border-top: #cd5e63 2px solid\">买点日期</th>\n" +
+                "                        <th style=\"color: #FF0000; font-size: 16px\">股票(稳健方式)</th>\n" +
+                "                        <th>涨幅</th>\n" +
+                "                        <th>换手率</th>\n" +
+                "                    </tr>\n" +
+                "                    </thead>\n" +
+                "                    <tbody>"
+            for (var i = 0; i < data.common.length; i++) {
+                if (i != data.common.length - 1) {
+                    html += "<tr>\n" +
+                        "                        <td><a target=\"_blank\">" + data.common[i].name + "(" + data.common[i].symbol + ")</a>\n" +
+                        "                        </td>\n" +
+                        "                        <td>" + data.common[i].pct_chg + "%</td>\n" +
+                        "                        <td>" + data.common[i].turnover_rate + "%</td>\n" +
+                        "                        <td style=\"border-left: #cd5e63 2px solid;border-right: #cd5e63 2px solid;\">{{ "%s/%s/%s"|format(date[0:4],date[4:6],date[6:8]) }}</td>\n" +
+                        "                        <td><a target=\"_blank\">" + data.common[i].name + "(" + data.common[i].symbol + ")</a>\n" +
+                        "                        </td>\n" +
+                        "                        <td>" + data.common[i].pct_chg + "%</td>\n" +
+                        "                        <td>" + data.common[i].turnover_rate + "%</td>\n" +
+                        "                    </tr>"
+                } else {
+                    html += "<tr>\n" +
+                        "                        <td style=\"border-bottom: #cd5e63 2px solid\"><a target=\"_blank\">" + data.common[i].name + "(" + data.common[i].symbol + ")</a>\n" +
+                        "                        </td>\n" +
+                        "                        <td style=\"border-bottom: #cd5e63 2px solid\">" + data.common[i].pct_chg + "%</td>\n" +
+                        "                        <td style=\"border-bottom: #cd5e63 2px solid\">" + data.common[i].turnover_rate + "%</td>\n" +
+                        "                        <td style=\"border-left: #cd5e63 2px solid;border-right: #cd5e63 2px solid;border-bottom: #cd5e63 2px solid\">{{ "%s/%s/%s"|format(date[0:4],date[4:6],date[6:8]) }}</td>\n" +
+                        "                        <td style=\"border-bottom: #cd5e63 2px solid\"><a target=\"_blank\">" + data.common[i].name + "(" + data.common[i].symbol + ")</a>\n" +
+                        "                        </td>\n" +
+                        "                        <td style=\"border-bottom: #cd5e63 2px solid\">" + data.common[i].pct_chg + "%</td>\n" +
+                        "                        <td style=\"border-bottom: #cd5e63 2px solid\">" + data.common[i].turnover_rate + "%</td>\n" +
+                        "                    </tr>"
+
+                }
+            }
+            if (data.aggressive.length > data.steady.length) {
+                var j = -1;
+                for (var i = 0; i < data.steady.length; i++) {
+                    j = i;
+                    html += "<tr>\n" +
+                        "                        <td><a target=\"_blank\">" + data.aggressive[i].name + "(" + data.aggressive[i].symbol + ")</a>\n" +
+                        "                        </td>\n" +
+                        "                        <td>" + data.aggressive[i].pct_chg + "%</td>\n" +
+                        "                        <td>" + data.aggressive[i].turnover_rate + "%</td>\n" +
+                        "                        <td style=\"border-left: #cd5e63 2px solid;border-right: #cd5e63 2px solid;\">{{ "%s/%s/%s"|format(date[0:4],date[4:6],date[6:8]) }}</td>\n" +
+                        "                        <td><a target=\"_blank\">" + data.steady[i].name + "(" + data.steady[i].symbol + ")</a>\n" +
+                        "                        </td>\n" +
+                        "                        <td>" + data.steady[i].pct_chg + "%</td>\n" +
+                        "                        <td>" + data.steady[i].turnover_rate + "%</td>\n" +
+                        "                    </tr>"
+                }
+                for (var i = j + 1; i < data.aggressive.length; i++) {
+                    if (i != data.aggressive.length - 1) {
+                        html += "<tr>\n" +
+                            "                        <td><a target=\"_blank\">" + data.aggressive[i].name + "(" + data.aggressive[i].symbol + ")</a>\n" +
+                            "                        </td>\n" +
+                            "                        <td>" + data.aggressive[i].pct_chg + "%</td>\n" +
+                            "                        <td>" + data.aggressive[i].turnover_rate + "%</td>\n" +
+                            "                        <td style=\"border-left: #cd5e63 2px solid;border-right: #cd5e63 2px solid;\">{{ "%s/%s/%s"|format(date[0:4],date[4:6],date[6:8]) }}</td>\n" +
+                            "                        <td><a target=\"_blank\">-</a>\n" +
+                            "                        </td>\n" +
+                            "                        <td>-</td>\n" +
+                            "                        <td>-</td>\n" +
+                            "                    </tr>"
+                    } else {
+                        html += "<tr>\n" +
+                            "                        <td><a target=\"_blank\">" + data.aggressive[i].name + "(" + data.aggressive[i].symbol + ")</a>\n" +
+                            "                        </td>\n" +
+                            "                        <td>" + data.aggressive[i].pct_chg + "%</td>\n" +
+                            "                        <td>" + data.aggressive[i].turnover_rate + "%</td>\n" +
+                            "                        <td style=\"border-left: #cd5e63 2px solid;border-right: #cd5e63 2px solid;border-bottom: #cd5e63 2px solid;\">{{ "%s/%s/%s"|format(date[0:4],date[4:6],date[6:8]) }}</td>\n" +
+                            "                        <td><a target=\"_blank\">-</a>\n" +
+                            "                        </td>\n" +
+                            "                        <td>-</td>\n" +
+                            "                        <td>-</td>\n" +
+                            "                    </tr>"
+                    }
+
+                }
+            }
+            if (data.aggressive.length < data.steady.length) {
+                var j = -1;
+                for (var i = 0; i < data.aggressive.length; i++) {
+                    j = i;
+                    html += "<tr>\n" +
+                        "                        <td><a target=\"_blank\">" + data.aggressive[i].name + "(" + data.aggressive[i].symbol + ")</a>\n" +
+                        "                        </td>\n" +
+                        "                        <td>" + data.aggressive[i].pct_chg + "%</td>\n" +
+                        "                        <td>" + data.aggressive[i].turnover_rate + "%</td>\n" +
+                        "                        <td style=\"border-left: #cd5e63 2px solid;border-right: #cd5e63 2px solid;\">{{ "%s/%s/%s"|format(date[0:4],date[4:6],date[6:8]) }}</td>\n" +
+                        "                        <td><a target=\"_blank\">" + data.steady[i].name + "(" + data.steady[i].symbol + ")</a>\n" +
+                        "                        </td>\n" +
+                        "                        <td>" + data.steady[i].pct_chg + "%</td>\n" +
+                        "                        <td>" + data.steady[i].turnover_rate + "%</td>\n" +
+                        "                    </tr>"
+                }
+                for (var i = j + 1; i < data.steady.length; i++) {
+                    if (i != data.steady.length - 1) {
+                        html += "<tr>\n" +
+                            "                        <td><a target=\"_blank\">-</a>\n" +
+                            "                        </td>\n" +
+                            "                        <td>-</td>\n" +
+                            "                        <td>-</td>\n" +
+                            "                        <td style=\"border-left: #cd5e63 2px solid;border-right: #cd5e63 2px solid;\">{{ "%s/%s/%s"|format(date[0:4],date[4:6],date[6:8]) }}</td>\n" +
+                            "                        <td><a target=\"_blank\">" + data.steady[i].name + "(" + data.steady[i].symbol + ")</a>\n" +
+                            "                        </td>\n" +
+                            "                        <td>" + data.steady[i].pct_chg + "%</td>\n" +
+                            "                        <td>" + data.steady[i].turnover_rate + "%</td>\n" +
+                            "                    </tr>"
+                    } else {
+                        html += "<tr>\n" +
+                            "                        <td><a target=\"_blank\">-</a>\n" +
+                            "                        </td>\n" +
+                            "                        <td>-</td>\n" +
+                            "                        <td>-</td>\n" +
+                            "                        <td style=\"border-left: #cd5e63 2px solid;border-right: #cd5e63 2px solid;border-bottom: #cd5e63 2px solid;\">{{ "%s/%s/%s"|format(date[0:4],date[4:6],date[6:8]) }}</td>\n" +
+                            "                        <td><a target=\"_blank\">" + data.steady[i].name + "(" + data.steady[i].symbol + ")</a>\n" +
+                            "                        </td>\n" +
+                            "                        <td>" + data.steady[i].pct_chg + "%</td>\n" +
+                            "                        <td>" + data.steady[i].turnover_rate + "%</td>\n" +
+                            "                    </tr>"
+                    }
+
+                }
+            }
+            if (data.aggressive.length == data.steady.length) {
+                for (var i = 0; i < data.aggressive.length; i++) {
+                    if (i != data.aggressive.length - 1) {
+                        html += "<tr>\n" +
+                            "                        <td><a target=\"_blank\">" + data.aggressive[i].name + "(" + data.aggressive[i].symbol + ")</a>\n" +
+                            "                        </td>\n" +
+                            "                        <td>" + data.aggressive[i].pct_chg + "%</td>\n" +
+                            "                        <td>" + data.aggressive[i].turnover_rate + "%</td>\n" +
+                            "                        <td style=\"border-left: #cd5e63 2px solid;border-right: #cd5e63 2px solid;\">{{ "%s/%s/%s"|format(date[0:4],date[4:6],date[6:8]) }}</td>\n" +
+                            "                        <td><a target=\"_blank\">" + data.steady[i].name + "(" + data.steady[i].symbol + ")</a>\n" +
+                            "                        </td>\n" +
+                            "                        <td>" + data.steady[i].pct_chg + "%</td>\n" +
+                            "                        <td>" + data.steady[i].turnover_rate + "%</td>\n" +
+                            "                    </tr>"
+                    } else {
+                        html += "<tr>\n" +
+                            "                        <td><a target=\"_blank\">" + data.aggressive[i].name + "(" + data.aggressive[i].symbol + ")</a>\n" +
+                            "                        </td>\n" +
+                            "                        <td>" + data.aggressive[i].pct_chg + "%</td>\n" +
+                            "                        <td>" + data.aggressive[i].turnover_rate + "%</td>\n" +
+                            "                        <td style=\"border-left: #cd5e63 2px solid;border-right: #cd5e63 2px solid;border-bottom: #cd5e63 2px solid;\">{{ "%s/%s/%s"|format(date[0:4],date[4:6],date[6:8]) }}</td>\n" +
+                            "                        <td><a target=\"_blank\">" + data.steady[i].name + "(" + data.steady[i].symbol + ")</a>\n" +
+                            "                        </td>\n" +
+                            "                        <td>" + data.steady[i].pct_chg + "%</td>\n" +
+                            "                        <td>" + data.steady[i].turnover_rate + "%</td>\n" +
+                            "                    </tr>"
+                    }
+
+                }
+            }
+
+            html += "</tbody></table>"
+            $("#table").html(html)
+        }
+
+    </script>
+{% endblock %}

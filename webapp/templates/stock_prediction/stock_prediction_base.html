@@ -29,12 +29,12 @@
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a href="" aria-expanded="false" class="nav-link" style="padding: 8px">
+                        <a href="{{ url_for('stock_prediction.stock_assessment',code=stock.ts_code) }}" aria-expanded="false" class="nav-link" style="padding: 8px">
                             <i class="dripicons-meter" style="font-size: 25px"></i><br/>股票估值
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a href="" aria-expanded="false" class="nav-link" style="padding: 8px">
+                        <a href="{{ url_for('stock_prediction.money_flow',code=stock.ts_code) }}" aria-expanded="false" class="nav-link" style="padding: 8px">
                             <i class="dripicons-retweet" style="font-size: 25px"></i><br/>资金流向
                         </a>
                     </li>
@@ -44,12 +44,12 @@
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a href="" aria-expanded="false" class="nav-link" style="padding: 8px">
+                        <a href="{{ url_for('stock_prediction.rule_statistics',code=stock.ts_code) }}" aria-expanded="false" class="nav-link" style="padding: 8px">
                             <i class="dripicons-to-do" style="font-size: 25px"></i><br/>规则统计
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a href="{{ url_for('stock_prediction.trend_prediction') }}" aria-expanded="false" class="nav-link" style="padding: 8px">
+                        <a href="{{ url_for('stock_prediction.main_qjzn') }}" aria-expanded="false" class="nav-link" style="padding: 8px">
                             <i class="dripicons-preview" style="font-size: 25px"></i><br/>全局指南
                         </a>
                     </li>

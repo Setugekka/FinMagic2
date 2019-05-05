@@ -36,6 +36,56 @@ def trend_prediction():
             return render_template('stock_prediction/trend_prediction.html', stock=stock, date=date_validated,
                                    date_list=date_list)
 
+
+@stock_prediction.route('stock_assessment', methods=['GET'])
+def stock_assessment():
+    code = request.args.get('code')
+    date = request.args.get('date')
+    if code is None:
+        return redirect(url_for('stock_prediction.stock_assessment', code='000001.SZ'))
+    else:
+        result = Stock_Basic.query.filter_by(ts_code=code).first()
+        if result is None:
+            abort(404)
+        else:
+            date_validated, date_list = date_validation(date)
+            stock = {'ts_code': result.ts_code, 'name': result.name, 'symbol': result.symbol}
+            return render_template('stock_prediction/stock_assessment.html', stock=stock, date=date_validated,
+                                   date_list=date_list)
+
+
+@stock_prediction.route('money_flow', methods=['GET'])
+def money_flow():
+    code = request.args.get('code')
+    date = request.args.get('date')
+    if code is None:
+        return redirect(url_for('stock_prediction.money_flow', code='000001.SZ'))
+    else:
+        result = Stock_Basic.query.filter_by(ts_code=code).first()
+        if result is None:
+            abort(404)
+        else:
+            date_validated, date_list = date_validation(date)
+            stock = {'ts_code': result.ts_code, 'name': result.name, 'symbol': result.symbol}
+            return render_template('stock_prediction/money_flow.html', stock=stock, date=date_validated,
+                                   date_list=date_list)
+
+
+@stock_prediction.route('rule_statistics', methods=['GET'])
+def rule_statistics():
+    code = request.args.get('code')
+    date = request.args.get('date')
+    if code is None:
+        return redirect(url_for('stock_prediction.rule_statistics', code='000001.SZ'))
+    else:
+        result = Stock_Basic.query.filter_by(ts_code=code).first()
+        if result is None:
+            abort(404)
+        else:
+            date_validated, date_list = date_validation(date)
+            stock = {'ts_code': result.ts_code, 'name': result.name, 'symbol': result.symbol}
+            return render_template('stock_prediction/rule_statistics.html', stock=stock, date=date_validated,
+                                   date_list=date_list)
 ###############################################################
 
 @stock_prediction.route('qjzn',methods=['GET','POST'])
